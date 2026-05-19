@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install dependencies
+        run: |
+          cd packages/shared && poetry install
+          cd ../database && poetry install
+          cd ../auth && poetry install
+          cd ../observability && poetry install
+          cd ../../apps/api && poetry install
+          cd ../worker && poetry install
+          cd ../simulator && poetry install
+      - name: Lint with Ruff
+        run: |
+          cd packages/shared && poetry run ruff check .
+          cd ../database && poetry run ruff check .
+          cd ../auth && poetry run ruff check .
+          cd ../observability && poetry run ruff check .
+          cd ../../apps/api && poetry run ruff check .
+          cd ../worker && poetry run ruff check .
+          cd ../simulator && poetry run ruff check .
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: timescale/timescaledb:2-pg16
+        env:
+          POSTGRES_USER: sc_user
+          POSTGRES_PASSWORD: sc_password
+          POSTGRES_DB: smart_city
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+      rabbitmq:
+        image: rabbitmq:3-alpine
+        ports:
+          - 5672:5672
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Poetry
+        run: pip install poetry
+      - name: Install dependencies
+        run: |
+          cd packages/shared && poetry install
+          cd ../database && poetry install
+          cd ../auth && poetry install
+          cd ../observability && poetry install
+          cd ../../apps/api && poetry install
+          cd ../worker && poetry install
+          cd ../simulator && poetry install
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql+asyncpg://sc_user:sc_password@localhost:5432/smart_city
+          REDIS_URL: redis://localhost:6379/0
+          RABBITMQ_URL: amqp://guest:guest@localhost:5672/
+        run: |
+          cd apps/api && poetry run pytest -v
+          cd ../worker && poetry run pytest -v
+          cd ../simulator && poetry run pytest -v
+
+  build:
+    runs-on: ubuntu-latest
+    needs: [lint, test]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Docker images
+        run: docker compose build

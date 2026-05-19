@@ -1,0 +1,315 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { createPortal } from "react-dom";
+import Link from "next/link";
+import { api, createWebSocket } from "@/lib/api";
+import { useAuth } from "@/lib/auth-context";
+import SensorQRCode from "./SensorQRCode";
+import {
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+} from "recharts";
+
+interface SensorData {
+  id: string;
+  name: string;
+  type: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+}
+
+interface LatestData {
+  sensor_id: string;
+  timestamp?: string;
+  metrics: Record<string, number>;
+  battery?: number;
+}
+
+interface HistoryPoint {
+  time: string;
+  metric_key: string;
+  value_numeric?: number;
+  value_text?: string;
+}
+
+interface AlertItem {
+  id: string;
+  sensor_id: string;
+  severity: string;
+  message: string;
+  acknowledged: boolean;
+  created_at: string;
+}
+
+interface SensorDrawerProps {
+  sensorId: string;
+  onClose: () => void;
+}
+
+type TimeRange = "1h" | "24h" | "7d";
+
+function toISO(d: Date): string {
+  return d.toISOString();
+}
+
+export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
+  const { user, token } = useAuth();
+  const isPaid = user?.plan === "pro" || user?.plan === "enterprise";
+
+  const [sensor, setSensor] = useState<SensorData | null>(null);
+  const [latest, setLatest] = useState<LatestData | null>(null);
+  const [history, setHistory] = useState<HistoryPoint[]>([]);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [timeRange, setTimeRange] = useState<TimeRange>("24h");
+  const [loading, setLoading] = useState(true);
+  const [csvLoading, setCsvLoading] = useState(false);
+
+  const hoursMap: Record<TimeRange, number> = { "1h": 1, "24h": 24, "7d": 168 };
+
+  const fetchSensor = useCallback(async () => {
+    try {
+      const [s, l] = await Promise.all([
+        api.sensors.get(sensorId),
+        api.sensors.latest(sensorId),
+      ]);
+      setSensor(s);
+      setLatest(l);
+    } catch { /* ignore */ }
+  }, [sensorId]);
+
+  const fetchHistory = useCallback(async () => {
+    if (!isPaid) return;
+    try {
+      const h = await api.sensors.history(sensorId, undefined, hoursMap[timeRange]);
+      setHistory(h);
+    } catch { /* ignore */ }
+  }, [sensorId, timeRange, isPaid]);
+
+  const fetchAlerts = useCallback(async () => {
+    if (!token) return;
+    try {
+      const a = await api.alerts.bySensor(sensorId, token);
+      setAlerts(a);
+    } catch { /* ignore */ }
+  }, [sensorId, token]);
+
+  useEffect(() => {
+    setLoading(true);
+    setHistory([]);
+    setAlerts([]);
+    Promise.all([fetchSensor(), fetchHistory(), fetchAlerts()]).finally(() => setLoading(false));
+  }, [sensorId]);
+
+  useEffect(() => {
+    if (!isPaid) return;
+    fetchHistory();
+  }, [timeRange]);
+
+  useEffect(() => {
+    if (!token) return;
+    fetchAlerts();
+  }, [token]);
+
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+
+    const connect = () => {
+      try {
+        ws = createWebSocket("sensors");
+        ws.onmessage = (event) => {
+          try {
+            const msg = JSON.parse(event.data);
+            if (msg.type === "sensor_update") {
+              const key = msg.data?.key || "";
+              if (key.includes(sensorId)) {
+                fetchSensor();
+              }
+            }
+          } catch { /* ignore */ }
+        };
+        ws.onclose = () => {
+          reconnectTimer = setTimeout(connect, 5000);
+        };
+      } catch { /* ignore */ }
+    };
+
+    connect();
+    return () => {
+      if (ws) ws.close();
+      clearTimeout(reconnectTimer);
+    };
+  }, [sensorId, fetchSensor]);
+
+  const statusColor: Record<string, string> = {
+    active: "bg-green-100 text-green-800",
+    inactive: "bg-red-100 text-red-800",
+    maintenance: "bg-amber-100 text-amber-800",
+  };
+
+  const metricKeys = latest?.metrics ? Object.keys(latest.metrics) : [];
+
+  const chartDataByMetric = (metricKey: string) => {
+    const points = history.filter((h) => h.metric_key === metricKey);
+    return points.map((p) => ({
+      time: new Date(p.time).toLocaleString(),
+      value: p.value_numeric ?? 0,
+    }));
+  };
+
+  const handleCsvDownload = async (metricKey: string) => {
+    if (!isPaid || !token) return;
+    setCsvLoading(true);
+    try {
+      const now = new Date();
+      const from = new Date(now.getTime() - hoursMap[timeRange] * 60 * 60 * 1000);
+      const result = await api.analytics.exportCsv(sensorId, metricKey, from.toISOString(), now.toISOString(), token);
+      const blob = new Blob([(result.data as string[]).join("\n")], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${sensorId}_${metricKey}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { /* ignore */ }
+    setCsvLoading(false);
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[2000] flex justify-end">
+      <div className="fixed inset-0 bg-black/30 z-[1999]" onClick={onClose} />
+      <div className="relative w-full max-w-2xl bg-white shadow-2xl overflow-y-auto z-[2000]">
+        <div className="sticky top-0 bg-white border-b z-10 px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold">{sensor?.name ?? "Loading..."}</h2>
+            {sensor && (
+              <p className="text-sm text-gray-500">
+                {sensor.latitude.toFixed(4)}, {sensor.longitude.toFixed(4)}
+              </p>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            {sensor && (
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[sensor.status] || "bg-gray-100 text-gray-800"}`}>
+                {sensor.status}
+              </span>
+            )}
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+          </div>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {loading ? (
+            <p className="text-gray-500 text-center py-12">Loading sensor data...</p>
+          ) : !sensor ? (
+            <p className="text-red-600 text-center py-12">Sensor not found</p>
+          ) : (
+            <>
+              {alerts.length > 0 && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <p className="text-sm font-medium text-red-800">Active Alerts ({alerts.length})</p>
+                  {alerts.slice(0, 3).map((a) => (
+                    <p key={a.id} className="text-xs text-red-600 mt-1">
+                      [{a.severity}] {a.message}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.entries(latest?.metrics ?? {}).map(([key, value]) => (
+                  <div key={key} className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="text-xs text-gray-500 uppercase">{key}</div>
+                    <div className="text-lg font-bold mt-1">{value}</div>
+                  </div>
+                ))}
+                {latest?.battery !== undefined && (
+                  <div className="bg-gray-50 rounded-lg p-3 text-center">
+                    <div className="text-xs text-gray-500 uppercase">Battery</div>
+                    <div className="text-lg font-bold mt-1">{latest.battery}%</div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold">Historical Data</h3>
+                  <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+                    {(["1h", "24h", "7d"] as TimeRange[]).map((r) => (
+                      <button
+                        key={r}
+                        onClick={() => setTimeRange(r)}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition ${
+                          timeRange === r ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {!isPaid ? (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
+                    <p className="text-yellow-800 font-medium text-sm mb-1">Historical data requires Pro</p>
+                    <Link href="/account" className="text-yellow-700 text-xs underline">Upgrade plan</Link>
+                  </div>
+                ) : metricKeys.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No metrics available</p>
+                ) : (
+                  <div className="space-y-6">
+                    {metricKeys.map((metricKey) => {
+                      const data = chartDataByMetric(metricKey);
+                      if (data.length === 0) return null;
+                      return (
+                        <div key={metricKey} className="bg-gray-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-semibold capitalize">{metricKey}</h4>
+                            <button
+                              onClick={() => handleCsvDownload(metricKey)}
+                              disabled={csvLoading}
+                              className="text-xs text-primary-600 hover:text-primary-800 disabled:text-gray-400"
+                            >
+                              {csvLoading ? "..." : "Download CSV"}
+                            </button>
+                          </div>
+                          <ResponsiveContainer width="100%" height={180}>
+                            <LineChart data={data}>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                              <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
+                              <YAxis tick={{ fontSize: 10 }} />
+                              <Tooltip />
+                              <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} dot={false} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-center pt-2 border-t">
+                <SensorQRCode sensorId={sensorId} size={120} showDownload={true} />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Link
+                  href={`/sensors/${sensorId}`}
+                  className="text-sm text-primary-600 hover:text-primary-800 font-medium"
+                >
+                  Open full page &rarr;
+                </Link>
+                <span className="text-xs text-gray-400">
+                  Last updated: {latest?.timestamp ? new Date(latest.timestamp).toLocaleTimeString() : "N/A"}
+                </span>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}

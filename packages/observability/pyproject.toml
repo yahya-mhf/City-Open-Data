@@ -1,0 +1,13 @@
+[tool.poetry]
+name = "smart-city-observability"
+version = "0.1.0"
+packages = [{ include = "smart_city_observability" }]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+prometheus-client = "^0.20"
+smart-city-shared = {path = "../shared", develop = true}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

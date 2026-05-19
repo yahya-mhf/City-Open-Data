@@ -1,0 +1,40 @@
+# --- Environment ---
+.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.hypothesis/
+
+# --- Node / JS ---
+node_modules/
+.next/
+npm-debug.log*
+
+# --- Docker ---
+.docker/
+
+# --- IDE / Editor ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Misc ---
+*.log
+.cph/
