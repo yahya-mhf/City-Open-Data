@@ -34,8 +34,11 @@ const SENSOR_SOURCE = "sensors";
 function toSensorPoints(data: MarkerData[]): SensorPoint[] {
   return data.map((m) => {
     const latest = m.latest ?? {};
-    const metricKey = Object.keys(latest).find((k) => k !== "status") ?? "";
-    const value = metricKey ? String(latest[metricKey] ?? "") : "";
+    const metrics = (latest.metrics as Record<string, unknown>) ?? {};
+    const metricKeys = Object.keys(metrics);
+    const metricKey = metricKeys[0] ?? "";
+    const value = metricKey ? String(metrics[metricKey] ?? "") : "";
+    const timestamp = latest.timestamp ? String(latest.timestamp) : "";
     return {
       id: m.id,
       name: m.name,
@@ -43,6 +46,8 @@ function toSensorPoints(data: MarkerData[]): SensorPoint[] {
       longitude: parseFloat(String(m.longitude)),
       status: m.status,
       value,
+      metricKey,
+      timestamp,
     };
   });
 }

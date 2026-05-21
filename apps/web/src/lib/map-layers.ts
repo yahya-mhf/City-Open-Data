@@ -1,5 +1,7 @@
 "use client";
 
+import maplibregl from "maplibre-gl";
+
 export interface SensorPoint {
   id: string;
   name: string;
@@ -7,6 +9,37 @@ export interface SensorPoint {
   longitude: number;
   status: string;
   value?: string;
+  metricKey?: string;
+  timestamp?: string;
+}
+
+const UNIT_MAP: Record<string, string> = {
+  temperature: "\u00B0C",
+  humidity: "%",
+  co2: "ppm",
+  pressure: "hPa",
+  rainfall: "mm/h",
+  seismic: "R",
+};
+
+function formatTime(iso: string | undefined): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return "";
+  }
+}
+
+function formatDate(iso: string | undefined): string {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString([], { month: "short", day: "numeric" });
+  } catch {
+    return "";
+  }
 }
 
 export function buildSensorGeoJSON(sensors: SensorPoint[]): GeoJSON.FeatureCollection {
@@ -22,6 +55,8 @@ export function buildSensorGeoJSON(sensors: SensorPoint[]): GeoJSON.FeatureColle
           name: s.name,
           status: s.status,
           value: s.value ?? "",
+          metricKey: s.metricKey ?? "",
+          timestamp: s.timestamp ?? "",
         },
       })),
   };
@@ -132,18 +167,81 @@ export function setupSensorInteraction(
   onClick: (id: string) => void,
 ) {
   const dotLayer = `${sourceId}-dot`;
+  let popup: maplibregl.Popup | null = null;
 
-  map.on("click", dotLayer, (e) => {
-    const id = e.features?.[0]?.properties?.id;
-    if (id) onClick(id);
-  });
+  function buildPopupHTML(props: Record<string, unknown>): string {
+    const name = String(props.name ?? "Unknown");
+    const value = String(props.value ?? "");
+    const metricKey = String(props.metricKey ?? "");
+    const timestamp = String(props.timestamp ?? "");
+    const status = String(props.status ?? "unknown");
+    const unit = UNIT_MAP[metricKey] ?? "";
 
-  map.on("mouseenter", dotLayer, () => {
+    const statusLabel =
+      status === "active" ? "Active" :
+      status === "warning" ? "Warning" :
+      status === "critical" ? "Critical" :
+      status === "inactive" ? "Inactive" :
+      status === "maintenance" ? "Maintenance" : status;
+
+    const statusColor =
+      status === "active" ? "#22c55e" :
+      status === "warning" || status === "maintenance" ? "#f59e0b" :
+      status === "critical" || status === "inactive" ? "#ef4444" :
+      "#6b7280";
+
+    const timeStr = timestamp ? `${formatDate(timestamp)} ${formatTime(timestamp)}` : "";
+    const isDark = document.documentElement.classList.contains("dark");
+
+    const bg = isDark ? "#1f2937" : "#ffffff";
+    const text = isDark ? "#f3f4f6" : "#111827";
+    const muted = isDark ? "#9ca3af" : "#6b7280";
+    const border = isDark ? "#374151" : "#e5e7eb";
+
+    return `
+      <div style="font-family:system-ui,sans-serif;padding:10px 12px;min-width:180px;background:${bg};color:${text};border-radius:8px;">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${name}</div>
+        <div style="display:flex;align-items:baseline;gap:4px;margin-bottom:6px;">
+          <span style="font-size:20px;font-weight:700;">${value}</span>
+          <span style="font-size:13px;color:${muted};">${unit}</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+          <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${statusColor};"></span>
+          <span style="font-size:12px;color:${muted};">${statusLabel}</span>
+        </div>
+        ${timeStr ? `<div style="font-size:11px;color:${muted};border-top:1px solid ${border};padding-top:4px;margin-top:2px;">Last updated ${timeStr}</div>` : ""}
+      </div>
+    `;
+  }
+
+  map.on("mouseenter", dotLayer, (e) => {
     map.getCanvas().style.cursor = "pointer";
+    const feature = e.features?.[0];
+    if (!feature || !feature.properties) return;
+    if (popup) popup.remove();
+    const coords = (feature.geometry as GeoJSON.Point).coordinates;
+    popup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: [0, -18],
+      className: "sensor-popup",
+    })
+      .setLngLat([coords[0], coords[1]])
+      .setHTML(buildPopupHTML(feature.properties))
+      .addTo(map);
   });
 
   map.on("mouseleave", dotLayer, () => {
     map.getCanvas().style.cursor = "";
+    if (popup) {
+      popup.remove();
+      popup = null;
+    }
+  });
+
+  map.on("click", dotLayer, (e) => {
+    const id = e.features?.[0]?.properties?.id;
+    if (id) onClick(id);
   });
 }
 
