@@ -83,6 +83,7 @@ export function addSensorLayers(
   const existingSource = map.getSource(sourceId);
   if (existingSource) {
     for (const id of [
+      `${sourceId}-hitarea`,
       `${sourceId}-cluster`,
       `${sourceId}-cluster-count`,
       `${sourceId}-pulse`,
@@ -191,6 +192,23 @@ export function addSensorLayers(
 
   map.addLayer(
     {
+      id: `${sourceId}-hitarea`,
+      type: "circle",
+      source: sourceId,
+      filter: ["!", ["has", "point_count"]],
+      minzoom: 14,
+      paint: {
+        "circle-radius": 22,
+        "circle-color": "#000000",
+        "circle-opacity": 0,
+        "circle-stroke-width": 0,
+      },
+    },
+    beforeId,
+  );
+
+  map.addLayer(
+    {
       id: `${sourceId}-label`,
       type: "symbol",
       source: sourceId,
@@ -226,6 +244,7 @@ export function updateSensorSource(
 
 export function removeSensorLayers(map: maplibregl.Map, sourceId: string) {
   for (const id of [
+    `${sourceId}-hitarea`,
     `${sourceId}-cluster`,
     `${sourceId}-cluster-count`,
     `${sourceId}-pulse`,
@@ -242,7 +261,7 @@ export function setupSensorInteraction(
   sourceId: string,
   onClick: (id: string, lng: number, lat: number) => void,
 ) {
-  const dotLayer = `${sourceId}-dot`;
+  const dotLayer = `${sourceId}-hitarea`;
   const clusterLayer = `${sourceId}-cluster`;
   let popup: maplibregl.Popup | null = null;
 
