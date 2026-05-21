@@ -1009,13 +1009,25 @@ export default function ThematicMap({
         onSelect={(lon, lat) => {
           if (mapRef.current) {
             mapRef.current.flyTo({ center: [lon, lat], zoom: 15, duration: 1200 });
-            const el = document.createElement("div");
-            el.textContent = "\uD83D\uDCCD";
-            el.style.cssText = "font-size:24px;text-shadow:0 2px 4px rgba(0,0,0,0.3)";
-            const marker = new maplibregl.Marker({ element: el })
-              .setLngLat([lon, lat])
-              .addTo(mapRef.current!);
-            setTimeout(() => marker.remove(), 5000);
+            const map = mapRef.current;
+            const id = "search-pin";
+            try { map.removeLayer(`${id}-dot`); } catch {}
+            try { map.removeLayer(`${id}-label`); } catch {}
+            try { map.removeSource(id); } catch {}
+            map.addSource(id, {
+              type: "geojson",
+              data: {
+                type: "FeatureCollection",
+                features: [{ type: "Feature", geometry: { type: "Point", coordinates: [lon, lat] }, properties: { label: "\uD83D\uDCCD" } }],
+              },
+            });
+            map.addLayer({ id: `${id}-dot`, type: "circle", source: id, paint: { "circle-radius": 16, "circle-color": "#2563eb", "circle-opacity": 0.9, "circle-stroke-width": 3, "circle-stroke-color": "#ffffff" } });
+            map.addLayer({ id: `${id}-label`, type: "symbol", source: id, layout: { "text-field": ["get", "label"], "text-size": 18, "text-allow-overlap": true }, paint: { "text-color": "#ffffff" } });
+            setTimeout(() => {
+              try { map.removeLayer(`${id}-dot`); } catch {}
+              try { map.removeLayer(`${id}-label`); } catch {}
+              try { map.removeSource(id); } catch {}
+            }, 5000);
           }
         }}
       />

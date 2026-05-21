@@ -26,16 +26,46 @@ export default function MiniMap({ latitude, longitude }: MiniMapProps) {
       interactive: false,
     });
 
-    new maplibregl.Marker({
-      element: (() => {
-        const el = document.createElement("div");
-        el.style.cssText =
-          "width:16px;height:16px;background:#2563eb;border:3px solid white;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.3)";
-        return el;
-      })(),
-    })
-      .setLngLat([longitude, latitude])
-      .addTo(map);
+    map.on("load", () => {
+      map.addSource("sensor-point", {
+        type: "geojson",
+        data: {
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              geometry: { type: "Point", coordinates: [longitude, latitude] },
+              properties: {},
+            },
+          ],
+        },
+      });
+
+      map.addLayer({
+        id: "sensor-dot",
+        type: "circle",
+        source: "sensor-point",
+        paint: {
+          "circle-radius": 14,
+          "circle-color": "#2563eb",
+          "circle-opacity": 1,
+          "circle-stroke-width": 3,
+          "circle-stroke-color": "#ffffff",
+        },
+      });
+
+      map.addLayer({
+        id: "sensor-pulse",
+        type: "circle",
+        source: "sensor-point",
+        paint: {
+          "circle-radius": 22,
+          "circle-color": "#2563eb",
+          "circle-opacity": 0.3,
+          "circle-stroke-width": 0,
+        },
+      });
+    });
 
     mapRef.current = map;
 
