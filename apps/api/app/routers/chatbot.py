@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,13 @@ from ..core.dependencies import get_db, get_current_user, redis_manager
 logger = logging.getLogger("urban_pulse.chatbot")
 
 router = APIRouter(tags=["Chatbot"])
+
+_GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not _GROQ_API_KEY:
+    logger.warning("GROQ_API_KEY not configured — chatbot and intelligence will fail")
+_groq_client: AsyncOpenAI | None = None
+if _GROQ_API_KEY:
+    _groq_client = AsyncOpenAI(api_key=_GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
 
 
 class MapBounds(BaseModel):
@@ -182,16 +190,11 @@ async def chat_message(
 
     context_data = await build_context(req.context, db)
 
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
+    if not _groq_client:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="GROQ_API_KEY not configured",
         )
-
-    from openai import AsyncOpenAI
-
-    client = AsyncOpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
 
     system_prompt = _make_system_prompt(
         json.dumps(context_data, default=str),
@@ -206,7 +209,7 @@ async def chat_message(
 
     async def generate():
         full_response = ""
-        stream = await client.chat.completions.create(
+        stream = await _groq_client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=groq_messages,
             max_tokens=4096,

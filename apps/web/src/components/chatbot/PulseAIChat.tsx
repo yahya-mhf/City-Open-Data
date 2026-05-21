@@ -69,6 +69,7 @@ export default function PulseAIChat() {
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const [hasAlertNotification, setHasAlertNotification] = useState(false);
   const [pendingAlert, setPendingAlert] = useState<AlertMessage | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -81,6 +82,14 @@ export default function PulseAIChat() {
     });
   }, []);
 
+  useEffect(() => {
+    setToken(
+      typeof window !== "undefined"
+        ? localStorage.getItem("access_token")
+        : null,
+    );
+  }, []);
+
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, []);
@@ -88,11 +97,6 @@ export default function PulseAIChat() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamText, scrollToBottom]);
-
-  const token =
-    typeof window !== "undefined"
-      ? localStorage.getItem("access_token")
-      : null;
 
   const activeAlertCount = messages.filter(
     (m) => m.role === "system" && m.content.startsWith("\u26A0\uFE0F"),
@@ -189,7 +193,12 @@ export default function PulseAIChat() {
 
   const sendMessage = useCallback(
     async (text: string) => {
-      if (!text.trim() || streaming || !token) return;
+      if (!text.trim() || streaming) return;
+      const tok = token ?? (typeof window !== "undefined" ? localStorage.getItem("access_token") : null);
+      if (!tok) {
+        setError("Please log in to use Pulse AI.");
+        return;
+      }
       setError("");
       setSuggestions([]);
       const userMsg = { role: "user", content: text.trim(), id: generateId() };
@@ -219,7 +228,7 @@ export default function PulseAIChat() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${tok}`,
           },
           body: JSON.stringify(body),
         });
@@ -261,12 +270,13 @@ export default function PulseAIChat() {
       }
       setStreaming(false);
     },
-    [streaming, token, conversationId, pathname],
+    [streaming, conversationId, pathname],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
+      if (!input.trim()) return;
       sendMessage(input);
     }
   };

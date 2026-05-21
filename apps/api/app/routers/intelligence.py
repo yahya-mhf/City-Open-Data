@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
 from sqlalchemy import select, func, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,13 @@ from ..core.dependencies import get_db, redis_manager
 logger = logging.getLogger("smart_city.intelligence")
 
 router = APIRouter()
+
+_GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not _GROQ_API_KEY:
+    logger.warning("GROQ_API_KEY not configured — intelligence will fail")
+_groq_client: AsyncOpenAI | None = None
+if _GROQ_API_KEY:
+    _groq_client = AsyncOpenAI(api_key=_GROQ_API_KEY, base_url="https://api.groq.com/openai/v1")
 
 
 class BBoxModel(BaseModel):
@@ -274,16 +282,12 @@ async def analyze_endpoint(
     if correlations:
         context["correlations"] = correlations
 
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
+    if not _groq_client:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="GROQ_API_KEY not configured",
         )
 
-    from openai import AsyncOpenAI
-
-    client = AsyncOpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
     system_prompt = (
         "You are a city intelligence analyst. You receive real sensor data from a smart city "
         "platform and return actionable insights as structured JSON only. Never return prose outside the JSON. "
@@ -309,7 +313,7 @@ async def analyze_endpoint(
     )
 
     try:
-        response = await client.chat.completions.create(
+        response = await _groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
                 {"role": "system", "content": system_prompt},
