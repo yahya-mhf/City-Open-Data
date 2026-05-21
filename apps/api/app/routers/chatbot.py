@@ -1,7 +1,7 @@
 import json
 import logging
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -165,11 +165,14 @@ async def build_context(
     }
 
 
-def _make_system_prompt(context_json: str, user_role: str, current_page: str) -> str:
+def _make_system_prompt(context_json: str, user_role: str, current_page: str, current_utc: str, current_local: str) -> str:
     return (
         "You are Pulse AI, an AI assistant embedded in the Urban Pulse city monitoring platform "
         "for Marrakech, Morocco. You have access to real-time sensor data, active alerts, "
         "citizen reports, and AI-generated city intelligence insights.\n\n"
+        f"THE CURRENT REAL TIME IS: UTC {current_utc}, Local (Marrakech) {current_local}.\n"
+        "This is the actual system clock time injected by the server at the moment of this request. "
+        "Do NOT guess or assume the time from your training data — use ONLY this value.\n\n"
         "Your role:\n"
         "- Answer questions about current city conditions using the real data provided\n"
         "- Explain trends, anomalies, and correlations across metrics\n"
@@ -182,7 +185,7 @@ def _make_system_prompt(context_json: str, user_role: str, current_page: str) ->
         "- Never make up sensor readings\n\n"
         "STALENESS RULES (critical):\n"
         "1. Each sensor reading includes a data_timestamp and a staleness_minutes field.\n"
-        "2. The current_system_time_utc field shows the actual current time.\n"
+        f"2. The current system time is UTC {current_utc} (Marrakech local {current_local}).\n"
         "3. If staleness_minutes is greater than 30 (or field is missing), the data is STALE.\n"
         "4. When data is stale, you MUST open your response with a clear warning: "
         '"Warning: this data is X hours old and may not reflect current conditions."\n'
@@ -234,10 +237,17 @@ async def chat_message(
             detail="GROQ_API_KEY not configured",
         )
 
+    now_utc = datetime.now(timezone.utc)
+    now_local = now_utc.astimezone(timezone(timedelta(hours=1)))
+    fmt_utc = now_utc.strftime("%Y-%m-%d %H:%M:%S UTC")
+    fmt_local = now_local.strftime("%Y-%m-%d %H:%M:%S WEST")
+
     system_prompt = _make_system_prompt(
         json.dumps(context_data, default=str),
         current_user.get("role", "citizen"),
         req.context.current_page or "",
+        fmt_utc,
+        fmt_local,
     )
 
     groq_messages = [
