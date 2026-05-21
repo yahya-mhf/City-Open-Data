@@ -105,10 +105,37 @@ async def get_recent_reports(db: AsyncSession, limit: int = 3) -> list[dict]:
     ]
 
 
+def _tag_staleness(readings: list[dict]) -> list[dict]:
+    now = datetime.now(timezone.utc)
+    tagged: list[dict] = []
+    for r in readings:
+        data = r.get("data", {})
+        ts_str = data.get("timestamp")
+        age_minutes = None
+        stale = True
+        if ts_str:
+            try:
+                ts = datetime.fromisoformat(ts_str)
+                age_minutes = (now - ts).total_seconds() / 60
+                stale = age_minutes > 30
+            except (ValueError, TypeError):
+                pass
+        tagged.append({
+            "sensor_id": r["sensor_id"],
+            "data": data,
+            "staleness_minutes": age_minutes,
+            "stale": stale,
+            "data_timestamp": ts_str,
+            "current_time_utc": now.isoformat(),
+        })
+    return tagged
+
+
 async def build_context(
     user_context: Context, db: AsyncSession
 ) -> dict:
-    sensor_data = await get_latest_readings(user_context.visible_sensors)
+    raw_sensor_data = await get_latest_readings(user_context.visible_sensors)
+    sensor_data = _tag_staleness(raw_sensor_data)
     active_alerts = await get_active_alerts(db, limit=5)
     recent_reports = await get_recent_reports(db, limit=3)
 
@@ -126,6 +153,7 @@ async def build_context(
                     except (json.JSONDecodeError, TypeError):
                         pass
 
+    now = datetime.now(timezone.utc)
     return {
         "sensors": sensor_data,
         "alerts": active_alerts,
@@ -133,6 +161,7 @@ async def build_context(
         "intelligence": intelligence[:10],
         "current_page": user_context.current_page,
         "current_metric": user_context.current_metric,
+        "current_system_time_utc": now.isoformat(),
     }
 
 
@@ -151,6 +180,15 @@ def _make_system_prompt(context_json: str, user_role: str, current_page: str) ->
         '("CO2 in Guéliz is currently 847ppm, 23% above the daily average")\n'
         "- If you don't have data to answer something, say so clearly\n"
         "- Never make up sensor readings\n\n"
+        "STALENESS RULES (critical):\n"
+        "1. Each sensor reading includes a data_timestamp and a staleness_minutes field.\n"
+        "2. The current_system_time_utc field shows the actual current time.\n"
+        "3. If staleness_minutes is greater than 30 (or field is missing), the data is STALE.\n"
+        "4. When data is stale, you MUST open your response with a clear warning: "
+        '"Warning: this data is X hours old and may not reflect current conditions."\n'
+        "5. Always mention both the sensor timestamp and the current time so the user can judge freshness.\n"
+        "6. Never present stale data as if it is current or near-current.\n"
+        "7. If ALL available sensor data is stale, say so clearly and suggest the user check back later.\n\n"
         "Current platform context:\n{context_json}\n\n"
         f"The user's role is: {user_role} (admin/operator/citizen)\n"
         f"Current page: {current_page}"
