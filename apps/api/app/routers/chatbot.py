@@ -149,13 +149,6 @@ def _make_system_prompt(context_json: str, user_role: str, current_page: str) ->
     )
 
 
-async def stream_anthropic_response(anthropic_stream):
-    async for event in anthropic_stream:
-        if event.type == "content_block_delta":
-            yield f"data: {json.dumps({'delta': event.delta.text})}\n\n"
-    yield "data: [DONE]\n\n"
-
-
 async def save_conversation(
     redis, key: str, messages: list[dict], response_text: str
 ) -> None:
@@ -189,16 +182,17 @@ async def chat_message(
 
     context_data = await build_context(req.context, db)
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="ANTHROPIC_API_KEY not configured",
+            detail="GEMINI_API_KEY not configured",
         )
 
-    import anthropic
+    from google import genai
+    from google.genai import types
 
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
     system_prompt = _make_system_prompt(
         json.dumps(context_data, default=str),
@@ -206,24 +200,24 @@ async def chat_message(
         req.context.current_page or "",
     )
 
-    anthropic_messages = [
-        {"role": m["role"], "content": m["content"]} for m in messages
-    ]
-
-    stream = await client.messages.create(
-        model="claude-sonnet-4-20250514",
-        max_tokens=4096,
-        system=system_prompt,
-        messages=anthropic_messages,
-        stream=True,
+    gemini_contents = "\n".join(
+        f"{m['role']}: {m['content']}" for m in messages
     )
 
     async def generate():
         full_response = ""
-        async for event in stream:
-            if event.type == "content_block_delta":
-                full_response += event.delta.text
-                yield f"data: {json.dumps({'delta': event.delta.text})}\n\n"
+        stream = await client.aio.models.generate_content_stream(
+            model="gemini-2.0-flash",
+            contents=gemini_contents,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                max_output_tokens=4096,
+            ),
+        )
+        async for chunk in stream:
+            if chunk.text:
+                full_response += chunk.text
+                yield f"data: {json.dumps({'delta': chunk.text})}\n\n"
         yield "data: [DONE]\n\n"
 
         if redis_manager.client:

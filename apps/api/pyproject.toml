@@ -13,7 +13,7 @@ aio-pika = "^9.4"
 redis = "^5.1"
 minio = "^7.2"
 prophet = "^1.3"
-anthropic = "^0.49"
+google-genai = "^1.0"
 smart-city-shared = {path = "../../packages/shared", develop = true}
 smart-city-database = {path = "../../packages/database", develop = true}
 smart-city-auth = {path = "../../packages/auth", develop = true}

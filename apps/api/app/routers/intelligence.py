@@ -274,16 +274,17 @@ async def analyze_endpoint(
     if correlations:
         context["correlations"] = correlations
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="ANTHROPIC_API_KEY not configured",
+            detail="GEMINI_API_KEY not configured",
         )
 
-    import anthropic
+    from google import genai
+    from google.genai import types
 
-    client = anthropic.AsyncAnthropic(api_key=api_key)
+    client = genai.Client(api_key=api_key)
     system_prompt = (
         "You are a city intelligence analyst. You receive real sensor data from a smart city "
         "platform and return actionable insights as structured JSON only. Never return prose outside the JSON. "
@@ -309,17 +310,19 @@ async def analyze_endpoint(
     )
 
     try:
-        response = await client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=4096,
-            system=system_prompt,
-            messages=[{"role": "user", "content": user_prompt}],
+        response = await client.aio.models.generate_content(
+            model="gemini-2.0-flash",
+            contents=user_prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                max_output_tokens=4096,
+            ),
         )
 
-        input_tokens = response.usage.input_tokens
-        output_tokens = response.usage.output_tokens
+        input_tokens = response.usage_metadata.prompt_token_count if response.usage_metadata else 0
+        output_tokens = response.usage_metadata.candidates_token_count if response.usage_metadata else 0
         logger.info(
-            "Anthropic API call completed",
+            "Gemini API call completed",
             extra={
                 "analysis_type": req.analysis_type,
                 "input_tokens": input_tokens,
@@ -328,7 +331,7 @@ async def analyze_endpoint(
             },
         )
 
-        content = response.content[0].text
+        content = response.text
         suggestions = json.loads(content)
         if not isinstance(suggestions, list):
             raise ValueError("Response is not a JSON array")
@@ -357,7 +360,7 @@ async def analyze_endpoint(
         return validated
 
     except Exception as e:
-        logger.error("Anthropic API call failed", extra={"error": str(e), "analysis_type": req.analysis_type})
+        logger.error("Gemini API call failed", extra={"error": str(e), "analysis_type": req.analysis_type})
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"AI analysis failed: {e}",
