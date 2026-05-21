@@ -1,3 +1,6 @@
+@import 'maplibre-gl/dist/maplibre-gl.css';
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -5,18 +8,51 @@
 @layer base {
   body {
     @apply text-gray-900 antialiased;
+    font-feature-settings: 'cv11';
+  }
+
+  .dark body {
+    @apply bg-night-primary text-gray-100;
   }
 }
 
-.leaflet-container {
+.maplibregl-map {
   height: 100%;
   width: 100%;
   border-radius: 0.5rem;
-  z-index: 1 !important;
 }
 
-.leaflet-pane,
-.leaflet-top,
-.leaflet-bottom {
-  z-index: auto;
+.maplibregl-ctrl-attrib {
+  font-size: 10px !important;
+}
+
+.page-transition {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.page-transition-active {
+  opacity: 1;
+}
+
+.card {
+  @apply bg-white rounded-xl shadow-sm border border-white/10;
+  backdrop-filter: blur(8px);
+}
+
+.dark .card {
+  @apply bg-night-secondary border-night-border;
+}
+
+.btn {
+  @apply transition-all duration-150;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+}
+
+@keyframes city-skyline {
+  from { background-position: 0 0; }
+  to { background-position: -200px 0; }
 }

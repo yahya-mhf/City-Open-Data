@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
 
 interface ApiKeyItem {
@@ -44,6 +45,7 @@ const PLAN_ORDER = ["free", "pro", "enterprise"];
 
 function AccountContent() {
   const { user, token, loading, refreshUser } = useAuth();
+  const { nightMode, toggleNightMode } = useTheme();
   const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
   const [newKey, setNewKey] = useState<NewApiKey | null>(null);
   const [keyName, setKeyName] = useState("");
@@ -105,8 +107,16 @@ function AccountContent() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-primary-700">Account</h1>
           <nav className="flex gap-4 items-center">
+            <button
+              onClick={toggleNightMode}
+              className="text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 text-lg transition"
+              title={nightMode ? "Switch to day mode" : "Switch to night mode"}
+            >
+              {nightMode ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+            </button>
             <Link href="/dashboard" className="text-gray-600 hover:text-primary-600">Dashboard</Link>
             <Link href="/map" className="text-gray-600 hover:text-primary-600">Map</Link>
+            <Link href="/developer" className="text-gray-600 hover:text-primary-600">Developer</Link>
             <Link href="/" className="text-gray-600 hover:text-primary-600">Home</Link>
             <span className="text-sm text-gray-500">{user.full_name}</span>
           </nav>

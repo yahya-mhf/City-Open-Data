@@ -6,22 +6,22 @@ from typing import Any
 HOUR = 3600
 
 
+CITY_CENTER_LAT = 31.6295
+
+
 class SensorState:
-    def __init__(self, sensor_id: str, hub_id: str) -> None:
+    def __init__(self, sensor_id: str, hub_id: str, latitude: float, longitude: float) -> None:
         self.sensor_id = sensor_id
         self.hub_id = hub_id
+        self.latitude = latitude
+        self.longitude = longitude
         self.battery = 100.0
         self.temperature = 20.0
         self.humidity = 55.0
-        self.pm25 = 15.0
-        self.pm10 = 25.0
-        self.noise = 40.0
         self.co2 = 400.0
         self.pressure = 1013.0
-        self.uv_index = 3.0
-        self.water_level = 1.2
-        self._construction_timer = 0
-        self._aqi_spike_timer = 0
+        self.rainfall = 0.0
+        self.seismic = 0.0
 
 
 def _time_of_day_factor(now: datetime) -> float:
@@ -84,36 +84,6 @@ def generate_readings(
         s.humidity += (target_humidity - s.humidity) * 0.03
         s.humidity = _clamp(s.humidity, 10.0, 100.0)
 
-        s._aqi_spike_timer -= 1
-        if s._aqi_spike_timer <= 0:
-            if random.random() < 0.01 * step:
-                s.pm25 += random.uniform(30, 80)
-                s.pm10 += random.uniform(50, 150)
-                s._aqi_spike_timer = random.randint(5, 15)
-            else:
-                rush_hour_bonus = 0.0
-                if realistic_time:
-                    hr = now.hour
-                    if (7 <= hr <= 9) or (17 <= hr <= 19):
-                        rush_hour_bonus = 10.0
-                s.pm25 += random.gauss(0, 1.0 * step) + rush_hour_bonus * 0.05
-                s.pm10 += random.gauss(0, 2.0 * step) + rush_hour_bonus * 0.1
-        s.pm25 += (10.0 - s.pm25) * 0.02
-        s.pm25 = _clamp(s.pm25, 0.0, 500.0)
-        s.pm10 += (20.0 - s.pm10) * 0.02
-        s.pm10 = _clamp(s.pm10, 0.0, 600.0)
-
-        s._construction_timer -= 1
-        if s._construction_timer <= 0:
-            if random.random() < 0.005 * step:
-                s.noise += random.uniform(20, 40)
-                s._construction_timer = random.randint(2, 10)
-            else:
-                baseline = 35.0 + t_factor * 10.0
-                s.noise += random.gauss(0, 1.5 * step)
-                s.noise += (baseline - s.noise) * 0.03
-        s.noise = _clamp(s.noise, 25.0, 120.0)
-
         co2_target = 400.0 + t_factor * 200.0
         s.co2 += random.gauss(0, 5.0 * step)
         s.co2 += (co2_target - s.co2) * 0.02
@@ -123,20 +93,17 @@ def generate_readings(
         s.pressure += (1013.0 - s.pressure) * 0.01
         s.pressure = _clamp(s.pressure, 980.0, 1050.0)
 
-        uv_base = 0.0 if t_factor < 0.4 else (t_factor - 0.4) * 15.0
-        s.uv_index += random.gauss(0, 0.2 * step)
-        s.uv_index += (uv_base - s.uv_index) * 0.1
-        if s.uv_index < 0:
-            s.uv_index = 0
-        if not realistic_time:
-            s.uv_index = _clamp(s.uv_index, 0.0, 11.0)
-        else:
-            if now.hour < 6 or now.hour > 20:
-                s.uv_index = 0.0
+        s.rainfall += random.gauss(0, 2.0 * step)
+        base_rain = 2.0 if t_factor > 0.6 else 0.5
+        s.rainfall += (base_rain - s.rainfall) * 0.01
+        s.rainfall = _clamp(s.rainfall, 0.0, 150.0)
 
-        s.water_level += random.gauss(0, 0.05 * step)
-        s.water_level += (1.2 - s.water_level) * 0.01
-        s.water_level = _clamp(s.water_level, 0.0, 5.0)
+        if random.random() < 0.02:  # 2% chance of seismic event
+            s.seismic = random.uniform(2.0, 4.5)
+        else:
+            s.seismic += random.gauss(0, 0.05 * step)
+            s.seismic += (0.1 - s.seismic) * 0.02
+            s.seismic = _clamp(s.seismic, 0.0, 10.0)
 
         drain = 0.05 * step * (0.5 + t_factor)
         s.battery -= drain
@@ -146,16 +113,22 @@ def generate_readings(
             s.battery += random.uniform(10, 30)
         s.battery = _clamp(s.battery, 0.0, 100.0)
 
+        lat_offset = s.latitude - CITY_CENTER_LAT
+        lat_bias = 1.0 + lat_offset * 5.0
+        s.temperature = _clamp(s.temperature * lat_bias, -5.0, 50.0)
+        s.humidity = _clamp(s.humidity * lat_bias, 10.0, 100.0)
+        s.co2 = _clamp(s.co2 * lat_bias, 350.0, 2000.0)
+        s.pressure = _clamp(s.pressure * lat_bias, 980.0, 1050.0)
+        s.rainfall = _clamp(s.rainfall * lat_bias, 0.0, 150.0)
+        s.seismic = _clamp(s.seismic * lat_bias, 0.0, 10.0)
+
         metrics = {
             "temperature": round(s.temperature, 1),
             "humidity": round(s.humidity, 1),
-            "pm25": round(s.pm25, 1),
-            "pm10": round(s.pm10, 1),
-            "noise": round(s.noise, 1),
             "co2": round(s.co2, 1),
             "pressure": round(s.pressure, 1),
-            "uv_index": round(s.uv_index),
-            "water_level": round(s.water_level, 2),
+            "rainfall": round(s.rainfall, 2),
+            "seismic": round(s.seismic, 3),
         }
 
         reading = {

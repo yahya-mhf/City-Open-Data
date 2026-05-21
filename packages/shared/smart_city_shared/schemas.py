@@ -162,7 +162,6 @@ class SensorReadingHistory(BaseModel):
     metric_key: str
     value_numeric: float | None = None
     value_text: str | None = None
-    battery_level: float | None = None
     quality_flag: str | None = None
 
 
@@ -181,24 +180,55 @@ class PaginatedResponse(BaseModel):
 
 class ApiKeyCreate(BaseModel):
     name: str = "Default"
-    rate_limit: int = 1000
+    description: str | None = None
+    tier: str = "free"
+    rate_limit: int | None = None
+    allowed_metrics: list[str] | None = None
+    allowed_endpoints: list[str] | None = None
+    expires_at: datetime | None = None
+
+
+class ApiKeyUpdate(BaseModel):
+    tier: str | None = None
+    rate_limit: int | None = None
+    is_active: bool | None = None
+    allowed_metrics: list[str] | None = None
+    allowed_endpoints: list[str] | None = None
+    expires_at: datetime | None = None
 
 
 class ApiKeyRead(BaseModel):
     id: UUID
     name: str
+    description: str | None = None
     key_prefix: str = ""
+    tier: str = "free"
     rate_limit: int
     is_active: bool
+    allowed_metrics: list[str] | None = None
+    allowed_endpoints: list[str] | None = None
     created_at: datetime
+    last_used_at: datetime | None = None
+    expires_at: datetime | None = None
+    total_requests: int = 0
 
 
 class ApiKeyGenerated(BaseModel):
     id: UUID
     name: str
+    description: str | None = None
     key: str
+    tier: str = "free"
     rate_limit: int
     created_at: datetime
+
+
+class ApiKeyUsageStats(BaseModel):
+    requests_today: int = 0
+    requests_this_week: int = 0
+    by_endpoint: dict[str, int] = {}
+    avg_response_time_ms: float | None = None
+    error_rate: float = 0.0
 
 
 class CouponApply(BaseModel):

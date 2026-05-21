@@ -10,6 +10,11 @@ from smart_city_observability import setup_logging
 
 from .api.v1.routes import router as v1_router
 from .core.redis_client import redis_manager
+from .routers.maps import router as maps_router
+from .routers.forecast import router as forecast_router
+from .routers.intelligence import router as intelligence_router
+from .routers.public_api import router as public_api_router
+from .routers.chatbot import router as chatbot_router
 from .core.minio_client import minio_manager
 from .core.websocket_handler import websocket_router, redis_subscriber
 
@@ -31,7 +36,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Smart City Monitoring API",
+    title="Urban Pulse API",
     version="1.0.0",
     lifespan=lifespan,
 )
@@ -45,6 +50,11 @@ app.add_middleware(
 )
 
 app.include_router(v1_router, prefix="/api/v1")
+app.include_router(maps_router, prefix="/api/v1/maps")
+app.include_router(forecast_router, prefix="/api/v1/maps")
+app.include_router(intelligence_router, prefix="/api/v1/intelligence")
+app.include_router(public_api_router, prefix="/public/v1")
+app.include_router(chatbot_router, prefix="/api/v1/chatbot")
 app.include_router(websocket_router)
 
 metrics_app = make_asgi_app()

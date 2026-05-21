@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import random
 import signal
 import sys
 import time
@@ -25,13 +26,22 @@ REALISTIC_TIME = os.getenv("SIMULATOR_REALISTIC_TIME", "true").lower() == "true"
 
 HUB_IDS = ["hub-001", "hub-002", "hub-003"]
 
+HUB_COORDS: dict[str, tuple[float, float]] = {
+    "hub-001": (31.630, -7.982),
+    "hub-002": (31.632, -8.015),
+    "hub-003": (31.610, -8.048),
+}
+
 
 def build_sensors() -> list[SensorState]:
     sensors: list[SensorState] = []
     for i in range(SENSOR_COUNT):
         hub_id = HUB_IDS[i % len(HUB_IDS)]
         sid = f"{hub_id}-sensor-{i + 1:03d}"
-        s = SensorState(sensor_id=sid, hub_id=hub_id)
+        base_lat, base_lon = HUB_COORDS[hub_id]
+        lat = base_lat + random.uniform(-0.008, 0.008)
+        lon = base_lon + random.uniform(-0.008, 0.008)
+        s = SensorState(sensor_id=sid, hub_id=hub_id, latitude=lat, longitude=lon)
         s.temperature = 15.0 + (i % 5) * 3.0
         sensors.append(s)
     return sensors

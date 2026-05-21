@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
 
 function DashboardContent() {
   const { user, token, loading } = useAuth();
+  const { nightMode, toggleNightMode } = useTheme();
   const [sensorCount, setSensorCount] = useState(0);
   const [alertCount, setAlertCount] = useState(0);
   const [reportCount, setReportCount] = useState(0);
@@ -39,8 +41,18 @@ function DashboardContent() {
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-primary-700">Dashboard</h1>
           <nav className="flex gap-4 items-center">
+            <button
+              onClick={toggleNightMode}
+              className="text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 text-lg transition"
+              title={nightMode ? "Switch to day mode" : "Switch to night mode"}
+            >
+              {nightMode ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+            </button>
             <Link href="/map" className="text-gray-600 hover:text-primary-600">Map</Link>
+            <Link href="/maps/future" className="text-gray-600 hover:text-primary-600">Future City</Link>
+            <Link href="/maps" className="text-gray-600 hover:text-primary-600">Maps</Link>
             <Link href="/account" className="text-gray-600 hover:text-primary-600">Account</Link>
+            <Link href="/developer" className="text-gray-600 hover:text-primary-600">Developer</Link>
             {isOperator && <Link href="/admin" className="text-gray-600 hover:text-primary-600">Admin</Link>}
             <Link href="/" className="text-gray-600 hover:text-primary-600">Home</Link>
             <span className="text-sm text-gray-500">{user.full_name}</span>

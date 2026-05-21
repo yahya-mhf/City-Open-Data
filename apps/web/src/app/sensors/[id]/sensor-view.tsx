@@ -4,12 +4,16 @@ import { useEffect, useState, use, useRef, useCallback } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { api, createWebSocket } from "@/lib/api";
+import { useTheme } from "@/lib/theme-context";
 import SensorQRCode from "@/components/SensorQRCode";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 
-const MiniMap = dynamic(() => import("./MiniMap"), { ssr: false });
+const MiniMap = dynamic(() => import("./MiniMap"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-night-secondary rounded-xl"><span className="text-gray-400">Loading map...</span></div>,
+});
 
 interface MetricValue {
   time: string;
@@ -26,9 +30,10 @@ function getToken(): string | null {
 }
 
 export default function SensorPage({ params }: { params: Promise<{ id: string }> }) {
+  const { nightMode, toggleNightMode } = useTheme();
   const { id } = use(params);
   const [sensor, setSensor] = useState<{ name: string; type: string; status: string; latitude: number; longitude: number } | null>(null);
-  const [latest, setLatest] = useState<{ timestamp?: string; metrics: Record<string, number>; battery?: number } | null>(null);
+  const [latest, setLatest] = useState<{ timestamp?: string; metrics: Record<string, number> } | null>(null);
   const [history, setHistory] = useState<MetricValue[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>("24h");
   const [loading, setLoading] = useState(true);
@@ -44,7 +49,7 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
   const hoursMap: Record<TimeRange, number> = { "1h": 1, "24h": 24, "7d": 168 };
 
   useEffect(() => {
-    document.title = sensor ? `Sensor: ${sensor.name} | Smart City` : "Sensor | Smart City";
+    document.title = sensor ? `Sensor: ${sensor.name} | Urban Pulse` : "Sensor | Urban Pulse";
   }, [sensor]);
 
   const fetchSensor = useCallback(async () => {
@@ -82,10 +87,14 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
   useEffect(() => {
     let ws: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout>;
+    let backoffRef = 1000;
 
     const connect = () => {
       try {
         ws = createWebSocket("sensors");
+        ws.onopen = () => {
+          backoffRef = 1000;
+        };
         ws.onmessage = (event) => {
           try {
             const msg = JSON.parse(event.data);
@@ -98,11 +107,14 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
           } catch { /* ignore */ }
         };
         ws.onclose = () => {
-          reconnectTimer = setTimeout(connect, 5000);
+          const delay = Math.min(backoffRef, 30000);
+          backoffRef = Math.min(backoffRef * 2, 30000);
+          reconnectTimer = setTimeout(connect, delay);
         };
       } catch { /* ignore */ }
     };
 
+    backoffRef = 1000;
     connect();
     return () => {
       if (ws) ws.close();
@@ -157,10 +169,20 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
             {sensor && <p className="text-xs text-gray-400">ID: {id}</p>}
           </div>
           <nav className="flex gap-4 items-center">
+            <button
+              onClick={toggleNightMode}
+              className="text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 text-lg transition"
+              title={nightMode ? "Switch to day mode" : "Switch to night mode"}
+            >
+              {nightMode ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+            </button>
             <Link href="/map" className="text-gray-600 hover:text-primary-600">Map</Link>
             <Link href="/" className="text-gray-600 hover:text-primary-600">Home</Link>
             {token ? (
+              <>
               <Link href="/dashboard" className="text-gray-600 hover:text-primary-600">Dashboard</Link>
+              <Link href="/developer" className="text-gray-600 hover:text-primary-600">Developer</Link>
+              </>
             ) : (
               <Link href="/login" className="text-primary-600 hover:text-primary-800 font-medium text-sm">Login</Link>
             )}
@@ -191,9 +213,9 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
                 ) : (
                   <p className="text-gray-500">No data available</p>
                 )}
-                {latest?.battery !== undefined && (
+                {latest?.timestamp && (
                   <p className="mt-3 text-sm text-gray-500">
-                    Battery: {latest.battery}% | Last update: {latest.timestamp ? new Date(latest.timestamp).toLocaleTimeString() : "N/A"}
+                    Last update: {new Date(latest.timestamp).toLocaleTimeString()}
                   </p>
                 )}
               </div>

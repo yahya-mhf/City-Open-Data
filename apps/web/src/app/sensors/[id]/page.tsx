@@ -16,10 +16,10 @@ async function getSensor(id: string) {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const sensor = await getSensor(id);
-  const title = sensor ? `${sensor.name} | Smart City` : "Sensor | Smart City";
+  const title = sensor ? `${sensor.name} | Urban Pulse` : "Sensor | Urban Pulse";
   const description = sensor
-    ? `Live data for ${sensor.name} (${sensor.type}). View real-time metrics, history charts, and location.`
-    : "View real-time sensor data, history charts, and report issues.";
+    ? `Live Urban Pulse data for ${sensor.name} (${sensor.type}). View real-time metrics, history charts, and location.`
+    : "View Urban Pulse real-time sensor data, history charts, and report issues.";
 
   return {
     title,

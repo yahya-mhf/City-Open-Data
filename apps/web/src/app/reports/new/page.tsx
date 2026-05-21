@@ -5,9 +5,13 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
 
-const LocationPicker = dynamic(() => import("@/components/LocationPicker"), { ssr: false });
+const LocationPicker = dynamic(() => import("@/components/LocationPicker"), {
+  ssr: false,
+  loading: () => <div className="h-full w-full flex items-center justify-center bg-gray-100 dark:bg-night-secondary rounded-xl"><span className="text-gray-400">Loading map...</span></div>,
+});
 
 const CATEGORIES = [
   "street_light",
@@ -24,6 +28,7 @@ const MAX_DESC_LENGTH = 500;
 
 function ReportForm() {
   const { user, token } = useAuth();
+  const { nightMode, toggleNightMode } = useTheme();
   const router = useRouter();
   const [category, setCategory] = useState("other");
   const [description, setDescription] = useState("");
@@ -89,7 +94,17 @@ function ReportForm() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-primary-700">Submit Report</h1>
-          <Link href="/dashboard" className="text-gray-600 hover:text-primary-600">Dashboard</Link>
+          <nav className="flex gap-4 items-center">
+            <button
+              onClick={toggleNightMode}
+              className="text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 text-lg transition"
+              title={nightMode ? "Switch to day mode" : "Switch to night mode"}
+            >
+              {nightMode ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+            </button>
+            <Link href="/dashboard" className="text-gray-600 hover:text-primary-600">Dashboard</Link>
+            <Link href="/developer" className="text-gray-600 hover:text-primary-600">Developer</Link>
+          </nav>
         </div>
       </header>
 

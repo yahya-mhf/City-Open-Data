@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
 
 interface UserItem { id: string; email: string; full_name: string; role: string; created_at: string }
@@ -13,6 +14,7 @@ interface ReportItem { id: string; user_id: string; category: string; descriptio
 
 function AdminContent() {
   const { user, token } = useAuth();
+  const { nightMode, toggleNightMode } = useTheme();
   const [activeTab, setActiveTab] = useState("sensors");
   const [sensors, setSensors] = useState<SensorItem[]>([]);
   const [users, setUsers] = useState<UserItem[]>([]);
@@ -71,7 +73,18 @@ function AdminContent() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-primary-700">Admin Panel</h1>
-          <Link href="/dashboard" className="text-gray-600 hover:text-primary-600">Dashboard</Link>
+          <nav className="flex gap-4 items-center">
+            <button
+              onClick={toggleNightMode}
+              className="text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 text-lg transition"
+              title={nightMode ? "Switch to day mode" : "Switch to night mode"}
+            >
+              {nightMode ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+            </button>
+            <Link href="/dashboard" className="text-gray-600 hover:text-primary-600">Dashboard</Link>
+            <Link href="/maps" className="text-gray-600 hover:text-primary-600">Maps</Link>
+            <Link href="/developer" className="text-gray-600 hover:text-primary-600">Developer</Link>
+          </nav>
         </div>
       </header>
 

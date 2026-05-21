@@ -23,7 +23,6 @@ interface LatestData {
   sensor_id: string;
   timestamp?: string;
   metrics: Record<string, number>;
-  battery?: number;
 }
 
 interface HistoryPoint {
@@ -114,10 +113,14 @@ export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
   useEffect(() => {
     let ws: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout>;
+    let backoffRef = 1000;
 
     const connect = () => {
       try {
         ws = createWebSocket("sensors");
+        ws.onopen = () => {
+          backoffRef = 1000;
+        };
         ws.onmessage = (event) => {
           try {
             const msg = JSON.parse(event.data);
@@ -130,11 +133,14 @@ export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
           } catch { /* ignore */ }
         };
         ws.onclose = () => {
-          reconnectTimer = setTimeout(connect, 5000);
+          const delay = Math.min(backoffRef, 30000);
+          backoffRef = Math.min(backoffRef * 2, 30000);
+          reconnectTimer = setTimeout(connect, delay);
         };
       } catch { /* ignore */ }
     };
 
+    backoffRef = 1000;
     connect();
     return () => {
       if (ws) ws.close();
@@ -224,12 +230,6 @@ export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
                     <div className="text-lg font-bold mt-1">{value}</div>
                   </div>
                 ))}
-                {latest?.battery !== undefined && (
-                  <div className="bg-gray-50 rounded-lg p-3 text-center">
-                    <div className="text-xs text-gray-500 uppercase">Battery</div>
-                    <div className="text-lg font-bold mt-1">{latest.battery}%</div>
-                  </div>
-                )}
               </div>
 
               <div>

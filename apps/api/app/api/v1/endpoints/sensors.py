@@ -44,7 +44,6 @@ async def get_sensor_latest(sensor_id: str):
             sensor_id=sensor_id,
             timestamp=cached.get("timestamp"),
             metrics=cached.get("metrics", {}),
-            battery=cached.get("battery"),
         )
     return SensorLatestRead(sensor_id=sensor_id)
 
@@ -84,7 +83,6 @@ async def get_sensor_history(
             metric_join.c.key,
             sa_func.avg(models.SensorReading.value_numeric).label("value_numeric"),
             sa_func.min(models.SensorReading.value_text).label("value_text"),
-            sa_func.avg(models.SensorReading.battery_level).label("battery_level"),
             sa_func.max(models.SensorReading.quality_flag).label("quality_flag"),
         ).join(
             metric_join,
@@ -103,7 +101,6 @@ async def get_sensor_history(
             metric_join.c.key,
             models.SensorReading.value_numeric,
             models.SensorReading.value_text,
-            models.SensorReading.battery_level,
             models.SensorReading.quality_flag,
         ).join(
             metric_join,
@@ -127,7 +124,6 @@ async def get_sensor_history(
             metric_key=row.key,
             value_numeric=row.value_numeric,
             value_text=row.value_text,
-            battery_level=row.battery_level,
             quality_flag=row.quality_flag,
         )
         for row in rows

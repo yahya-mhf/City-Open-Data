@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import maplibregl from "maplibre-gl";
+import { LIGHT_STYLE } from "@/lib/map-styles";
 
 interface LocationPickerProps {
   latitude: string;
@@ -10,30 +10,41 @@ interface LocationPickerProps {
   onLocationChange: (lat: string, lng: string) => void;
 }
 
-const MARKER_HTML = `<div style="width: 28px; height: 28px; background: #2563eb; border: 3px solid white; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>`;
+const MARKER_HTML = `<div style="width:28px;height:28px;background:#2563eb;border:3px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;"><svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>`;
 
-export default function LocationPicker({ latitude, longitude, onLocationChange }: LocationPickerProps) {
+export default function LocationPicker({
+  latitude,
+  longitude,
+  onLocationChange,
+}: LocationPickerProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
+  const mapInstanceRef = useRef<maplibregl.Map | null>(null);
+  const markerRef = useRef<maplibregl.Marker | null>(null);
 
   const setMarker = (lat: number, lng: number) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
     if (markerRef.current) {
-      markerRef.current.setLatLng([lat, lng]);
-    } else if (mapInstanceRef.current) {
-      const icon = L.divIcon({
-        className: "custom-marker",
-        html: MARKER_HTML,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-      });
-      markerRef.current = L.marker([lat, lng], { icon, draggable: true }).addTo(
-        mapInstanceRef.current
-      );
-      markerRef.current.on("dragend", () => {
-        const pos = markerRef.current!.getLatLng();
+      markerRef.current.setLngLat([lng, lat]);
+    } else {
+      const el = document.createElement("div");
+      el.innerHTML = MARKER_HTML;
+      el.style.cursor = "grab";
+
+      const marker = new maplibregl.Marker({
+        element: el.firstElementChild as HTMLElement,
+        draggable: true,
+      })
+        .setLngLat([lng, lat])
+        .addTo(map);
+
+      marker.on("dragend", () => {
+        const pos = marker.getLngLat();
         onLocationChange(pos.lat.toFixed(6), pos.lng.toFixed(6));
       });
+
+      markerRef.current = marker;
     }
   };
 
@@ -43,22 +54,21 @@ export default function LocationPicker({ latitude, longitude, onLocationChange }
     const lat = parseFloat(latitude);
     const lng = parseFloat(longitude);
     const hasCoords = !isNaN(lat) && !isNaN(lng);
-    const center: [number, number] = hasCoords ? [lat, lng] : [31.6295, -7.9811];
+    const center: [number, number] = hasCoords
+      ? [lng, lat]
+      : [-7.9811, 31.6295];
 
-    const map = L.map(mapRef.current, {
+    const map = new maplibregl.Map({
+      container: mapRef.current,
+      style: LIGHT_STYLE,
       center,
       zoom: hasCoords ? 15 : 12,
-      zoomControl: true,
+      maxZoom: 19,
     });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map);
-
-    map.on("click", (e: L.LeafletMouseEvent) => {
-      setMarker(e.latlng.lat, e.latlng.lng);
-      onLocationChange(e.latlng.lat.toFixed(6), e.latlng.lng.toFixed(6));
+    map.on("click", (e) => {
+      setMarker(e.lngLat.lat, e.lngLat.lng);
+      onLocationChange(e.lngLat.lat.toFixed(6), e.lngLat.lng.toFixed(6));
     });
 
     mapInstanceRef.current = map;
@@ -82,11 +92,13 @@ export default function LocationPicker({ latitude, longitude, onLocationChange }
         const lng = pos.coords.longitude;
         setMarker(lat, lng);
         onLocationChange(lat.toFixed(6), lng.toFixed(6));
-        mapInstanceRef.current?.setView([lat, lng], 15);
+        mapInstanceRef.current?.flyTo({ center: [lng, lat], zoom: 15 });
       },
       () => {
-        alert("Unable to retrieve your location. Please click on the map instead.");
-      }
+        alert(
+          "Unable to retrieve your location. Please click on the map instead.",
+        );
+      },
     );
   };
 

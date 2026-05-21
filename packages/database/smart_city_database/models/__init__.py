@@ -3,7 +3,7 @@ from .sensor import Sensor, Hub, MetricDefinition
 from .reading import SensorReading
 from .alert import Alert
 from .report import CitizenReport, ReportComment
-from .subscription import Subscription, ApiKey, UsageLog
+from .subscription import Subscription, ApiKey, ApiKeyUsage, UsageLog
 
 __all__ = [
     "User",
@@ -17,5 +17,6 @@ __all__ = [
     "ReportComment",
     "Subscription",
     "ApiKey",
+    "ApiKeyUsage",
     "UsageLog",
 ]

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import maplibregl from "maplibre-gl";
+import { LIGHT_STYLE } from "@/lib/map-styles";
 
 interface MiniMapProps {
   latitude: number;
@@ -10,30 +10,33 @@ interface MiniMapProps {
   name: string;
 }
 
-export default function MiniMap({ latitude, longitude, name }: MiniMapProps) {
+export default function MiniMap({ latitude, longitude }: MiniMapProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<maplibregl.Map | null>(null);
 
   useEffect(() => {
     if (!ref.current || mapRef.current) return;
-    const map = L.map(ref.current, {
-      center: [latitude, longitude],
-      zoom: 15,
-      zoomControl: false,
-      dragging: false,
-      scrollWheelZoom: false,
-    });
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>',
-    }).addTo(map);
 
-    const icon = L.divIcon({
-      className: "",
-      html: `<div style="width:16px;height:16px;background:#2563eb;border:3px solid white;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.3)"></div>`,
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
+    const map = new maplibregl.Map({
+      container: ref.current,
+      style: LIGHT_STYLE,
+      center: [longitude, latitude],
+      zoom: 15,
+      maxZoom: 19,
+      interactive: false,
     });
-    L.marker([latitude, longitude], { icon }).addTo(map);
+
+    new maplibregl.Marker({
+      element: (() => {
+        const el = document.createElement("div");
+        el.style.cssText =
+          "width:16px;height:16px;background:#2563eb;border:3px solid white;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.3)";
+        return el;
+      })(),
+    })
+      .setLngLat([longitude, latitude])
+      .addTo(map);
+
     mapRef.current = map;
 
     return () => {

@@ -49,6 +49,7 @@ class MetricCategory(StrEnum):
     NOISE = "noise"
     RADIATION = "radiation"
     TRAFFIC = "traffic"
+    SAFETY = "safety"
 
 
 class SubscriptionPlan(StrEnum):

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
 
 interface Report {
@@ -18,6 +19,7 @@ interface Report {
 
 function ReportsList() {
   const { user, token } = useAuth();
+  const { nightMode, toggleNightMode } = useTheme();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -59,11 +61,19 @@ function ReportsList() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-primary-700">My Reports</h1>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+            <button
+              onClick={toggleNightMode}
+              className="text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 text-lg transition"
+              title={nightMode ? "Switch to day mode" : "Switch to night mode"}
+            >
+              {nightMode ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+            </button>
             <Link href="/reports/new" className="px-4 py-2 bg-primary-600 text-white rounded-lg text-sm hover:bg-primary-700">
               New Report
             </Link>
             <Link href="/dashboard" className="text-gray-600 hover:text-primary-600">Dashboard</Link>
+            <Link href="/developer" className="text-gray-600 hover:text-primary-600">Developer</Link>
           </div>
         </div>
       </header>

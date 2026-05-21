@@ -40,7 +40,6 @@ async def get_analytics_history(
         metric_join.c.key,
         models.SensorReading.value_numeric,
         models.SensorReading.value_text,
-        models.SensorReading.battery_level,
         models.SensorReading.quality_flag,
     ).join(
         metric_join,
@@ -65,7 +64,6 @@ async def get_analytics_history(
             metric_key=row.key,
             value_numeric=row.value_numeric,
             value_text=row.value_text,
-            battery_level=row.battery_level,
             quality_flag=row.quality_flag,
         )
         for row in rows
@@ -97,7 +95,6 @@ async def export_data(
         models.SensorReading.time,
         models.SensorReading.value_numeric,
         models.SensorReading.value_text,
-        models.SensorReading.battery_level,
         models.SensorReading.quality_flag,
     ).where(
         models.SensorReading.sensor_id == sensor_id,
@@ -114,17 +111,16 @@ async def export_data(
             "time": row.time.isoformat(),
             "value_numeric": row.value_numeric,
             "value_text": row.value_text,
-            "battery_level": row.battery_level,
             "quality_flag": row.quality_flag,
         }
         for row in rows
     ]
 
     if format == "csv":
-        csv_lines = ["time,value_numeric,value_text,battery_level,quality_flag"]
+        csv_lines = ["time,value_numeric,value_text,quality_flag"]
         for row in data:
             csv_lines.append(
-                f"{row['time']},{row['value_numeric']},{row['value_text'] or ''},{row['battery_level'] or ''},{row['quality_flag']}"
+                f"{row['time']},{row['value_numeric']},{row['value_text'] or ''},{row['quality_flag']}"
             )
         return ExportResponse(
             sensor_id=sensor_id,

@@ -1,3 +1,16 @@
+export interface IntelligenceSuggestion {
+  id: string;
+  type: "opportunity" | "risk" | "recommendation" | "alert";
+  title: string;
+  description: string;
+  lat: number;
+  lon: number;
+  radius_meters: number;
+  severity: "low" | "medium" | "high";
+  metrics_involved: string[];
+  confidence: number;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws";
 
@@ -64,13 +77,13 @@ export const api = {
     get: (id: string, token?: string) =>
       fetchApi<{ id: string; name: string; type: string; latitude: number; longitude: number; status: string; installed_at: string }>(`/sensors/${id}`, { token }),
     latest: (id: string) =>
-      fetchApi<{ sensor_id: string; timestamp?: string; metrics: Record<string, number>; battery?: number }>(`/sensors/${id}/latest`),
+      fetchApi<{ sensor_id: string; timestamp?: string; metrics: Record<string, number> }>(`/sensors/${id}/latest`),
     history: (id: string, metricKey?: string, hours = 24) =>
-      fetchApi<Array<{ time: string; metric_key: string; value_numeric?: number; value_text?: string; battery_level?: number; quality_flag?: string }>>(
+      fetchApi<Array<{ time: string; metric_key: string; value_numeric?: number; value_text?: string; quality_flag?: string }>>(
         `/sensors/${id}/history?${metricKey ? `metric_key=${metricKey}&` : ""}hours=${hours}`
       ),
     historyRange: (id: string, metricKey: string, start: string, end: string) =>
-      fetchApi<Array<{ time: string; metric_key: string; value_numeric?: number; value_text?: string; battery_level?: number; quality_flag?: string }>>(
+      fetchApi<Array<{ time: string; metric_key: string; value_numeric?: number; value_text?: string; quality_flag?: string }>>(
         `/sensors/${id}/history?metric_key=${metricKey}&start=${start}&end=${end}`
       ),
   },
@@ -105,6 +118,37 @@ export const api = {
     markers: () =>
       fetchApi<Array<{ id: string; name: string; latitude: number; longitude: number; status: string; latest: Record<string, unknown> }>>("/map/markers"),
   },
+  maps: {
+    metrics: () =>
+      fetchApi<Array<{ id: string; key: string; display_name: string; unit: string; category: string; min_value: number | null; max_value: number | null }>>("/maps/metrics"),
+    layers: (metricKey: string) =>
+      fetchApi<Array<{ sensor_id: string; sensor_name: string; lat: number; lon: number; value: number; unit: string; quality_flag: string | null; time: string | null }>>(`/maps/layers/${metricKey}`),
+    forecast: (metricKey: string, hoursAhead = 24) =>
+      fetchApi<Array<{ sensor_id: string; forecast: Array<{ time: string; value: number; lower_bound: number; upper_bound: number }> }>>(
+        `/maps/layers/${metricKey}/forecast?hours_ahead=${hoursAhead}`
+      ),
+    forecastSensor: (metricKey: string, sensorId: string, hoursAhead = 24) =>
+      fetchApi<{ sensor_id: string; forecast: Array<{ time: string; value: number; lower_bound: number; upper_bound: number }> }>(
+        `/maps/layers/${metricKey}/forecast?sensor_id=${sensorId}&hours_ahead=${hoursAhead}`
+      ),
+  },
+  intelligence: {
+    analyze: (data: { metric_keys: string[]; bbox: { north: number; south: number; east: number; west: number }; analysis_type: string }) =>
+      fetchApi<IntelligenceSuggestion[]>("/intelligence/analyze", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    suggestions: (analysisType: string, bbox: { north: number; south: number; east: number; west: number }) => {
+      const params = new URLSearchParams({
+        analysis_type: analysisType,
+        north: bbox.north.toString(),
+        south: bbox.south.toString(),
+        east: bbox.east.toString(),
+        west: bbox.west.toString(),
+      });
+      return fetchApi<IntelligenceSuggestion[]>(`/intelligence/suggestions?${params.toString()}`);
+    },
+  },
   metrics: {
     list: (activeOnly = false) =>
       fetchApi<Array<{ id: string; key: string; display_name: string; unit: string; category: string }>>(`/metrics${activeOnly ? "?active_only=true" : ""}`),
@@ -121,7 +165,7 @@ export const api = {
       if (metricKey) params.set("metric_key", metricKey);
       if (from) params.set("from", from);
       if (to) params.set("to", to);
-      return fetchApi<Array<{ time: string; metric_key: string; value_numeric?: number; value_text?: string; battery_level?: number; quality_flag?: string }>>(
+      return fetchApi<Array<{ time: string; metric_key: string; value_numeric?: number; value_text?: string; quality_flag?: string }>>(
         `/analytics/sensors/${sensorId}/history?${params.toString()}`,
         { token }
       );

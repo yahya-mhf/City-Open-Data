@@ -90,6 +90,16 @@ async def validate_and_store(session: AsyncSession, payload: HubPayload) -> dict
                 thresholds = md.thresholds_json or {}
                 if thresholds:
                     await check_thresholds(session, md, sid, metric_key, metric_value, thresholds)
+
+                if metric_key == "seismic" and isinstance(metric_value, (int, float)) and float(metric_value) > 2.5:
+                    if redis_client:
+                        import json as _json
+                        await redis_client.publish("seismic_events", _json.dumps({
+                            "type": "seismic_event",
+                            "sensor_id": sid,
+                            "value": float(metric_value),
+                            "timestamp": reading.timestamp.isoformat() if reading.timestamp else utc_now().isoformat(),
+                        }))
             elif isinstance(metric_value, str):
                 value_text = metric_value
                 latest_metrics[metric_key] = metric_value

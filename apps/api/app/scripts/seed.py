@@ -71,11 +71,8 @@ async def seed() -> None:
             metrics = [
                 MetricDefinition(key="temperature", display_name="Temperature", unit="°C", category=MetricCategory.WEATHER, min_value=-20, max_value=60, thresholds_json={"medium_hi": 35, "high_hi": 45}),
                 MetricDefinition(key="humidity", display_name="Humidity", unit="%", category=MetricCategory.WEATHER, min_value=0, max_value=100, thresholds_json={"low": 20, "high": 80}),
-                MetricDefinition(key="pm25", display_name="PM2.5", unit="µg/m³", category=MetricCategory.AIR_QUALITY, min_value=0, max_value=500, thresholds_json={"medium": 50, "high": 100}),
-                MetricDefinition(key="pm10", display_name="PM10", unit="µg/m³", category=MetricCategory.AIR_QUALITY, min_value=0, max_value=600),
-                MetricDefinition(key="noise", display_name="Noise Level", unit="dB", category=MetricCategory.NOISE, min_value=0, max_value=200),
-                MetricDefinition(key="water_level", display_name="Water Level", unit="m", category=MetricCategory.HYDROLOGY, min_value=0, max_value=10, thresholds_json={"critical": 2.0}),
-                MetricDefinition(key="uv_index", display_name="UV Index", unit="index", category=MetricCategory.WEATHER, min_value=0, max_value=11),
+                MetricDefinition(key="rainfall", display_name="Rainfall", unit="mm/h", category=MetricCategory.HYDROLOGY, min_value=0, max_value=150, thresholds_json={"high": 50, "extreme": 100}),
+                MetricDefinition(key="seismic", display_name="Seismic Activity", unit="richter", category=MetricCategory.SAFETY, min_value=0, max_value=10, thresholds_json={"medium": 2.0, "high": 2.5, "critical": 4.0}),
                 MetricDefinition(key="co2", display_name="CO2", unit="ppm", category=MetricCategory.AIR_QUALITY, min_value=350, max_value=2000, thresholds_json={"high": 1000}),
                 MetricDefinition(key="pressure", display_name="Atmospheric Pressure", unit="hPa", category=MetricCategory.WEATHER, min_value=980, max_value=1050),
             ]

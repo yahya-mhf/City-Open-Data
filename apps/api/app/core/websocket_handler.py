@@ -60,6 +60,9 @@ async def redis_subscriber() -> None:
     pubsub = redis_manager.client.pubsub()
     await pubsub.psubscribe("__keyspace@0__:*")
 
+    # Also subscribe to seismic_events channel
+    await pubsub.subscribe("seismic_events")
+
     async for message in pubsub.listen():
         if message["type"] == "pmessage":
             channel = message["channel"]
@@ -70,6 +73,12 @@ async def redis_subscriber() -> None:
                     {"type": "sensor_update", "data": {"key": channel}},
                     "sensors",
                 )
+        elif message["type"] == "message" and message["channel"] == "seismic_events":
+            try:
+                data = json.loads(message["data"])
+                await manager.broadcast(data, "alerts")
+            except (json.JSONDecodeError, Exception):
+                pass
 
 
 @websocket_router.websocket("/ws/{channel}")

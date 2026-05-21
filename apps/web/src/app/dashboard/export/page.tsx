@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import { ExportPanel } from "@/components/ExportPanel";
 
 function ExportContent() {
   const { user, token, loading } = useAuth();
+  const { nightMode, toggleNightMode } = useTheme();
 
   if (loading) {
     return (
@@ -44,8 +46,16 @@ function ExportContent() {
             <h1 className="text-2xl font-bold text-primary-700">Data Export</h1>
           </div>
           <nav className="flex gap-4 items-center">
+            <button
+              onClick={toggleNightMode}
+              className="text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 text-lg transition"
+              title={nightMode ? "Switch to day mode" : "Switch to night mode"}
+            >
+              {nightMode ? "\u2600\uFE0F" : "\uD83C\uDF19"}
+            </button>
             <Link href="/map" className="text-gray-600 hover:text-primary-600">Map</Link>
             <Link href="/dashboard" className="text-gray-600 hover:text-primary-600">Dashboard</Link>
+            <Link href="/developer" className="text-gray-600 hover:text-primary-600">Developer</Link>
             <span className="text-sm text-gray-500">{user.full_name}</span>
           </nav>
         </div>

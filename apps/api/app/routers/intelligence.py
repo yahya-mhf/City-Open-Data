@@ -1,0 +1,383 @@
+import hashlib
+import json
+import logging
+import math
+import os
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
+from sqlalchemy import select, func, and_, text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from smart_city_database import models
+from ..core.dependencies import get_db, redis_manager
+
+logger = logging.getLogger("smart_city.intelligence")
+
+router = APIRouter()
+
+
+class BBoxModel(BaseModel):
+    north: float
+    south: float
+    east: float
+    west: float
+
+
+class AnalyzeRequest(BaseModel):
+    metric_keys: list[str]
+    bbox: BBoxModel
+    analysis_type: str = Field(pattern=r"^(opportunities|risks|infrastructure|environment)$")
+
+
+def _bbox_hash(bbox: BBoxModel) -> str:
+    raw = f"{bbox.north:.6f}|{bbox.south:.6f}|{bbox.east:.6f}|{bbox.west:.6f}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
+
+
+def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+    R = 6371000.0
+    phi1 = math.radians(lat1)
+    phi2 = math.radians(lat2)
+    dphi = math.radians(lat2 - lat1)
+    dlambda = math.radians(lon2 - lon1)
+    a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlambda / 2) ** 2
+    return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def _pearson_correlation(x: list[float], y: list[float]) -> float:
+    n = len(x)
+    if n < 3:
+        return 0.0
+    sum_x = sum(x)
+    sum_y = sum(y)
+    sum_xy = sum(a * b for a, b in zip(x, y))
+    sum_x2 = sum(a * a for a in x)
+    sum_y2 = sum(b * b for b in y)
+    numerator = n * sum_xy - sum_x * sum_y
+    denominator = math.sqrt((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y))
+    if denominator == 0:
+        return 0.0
+    return numerator / denominator
+
+
+def _compute_correlations(
+    context_metrics: dict[str, Any],
+    hourly_maps: dict[str, dict[str, list[dict[str, Any]]]],
+    max_distance: float = 200.0,
+    min_correlation: float = 0.6,
+) -> list[dict[str, Any]]:
+    observations: list[dict[str, Any]] = []
+    for mk, mc in context_metrics.items():
+        hourly = hourly_maps.get(mk, {})
+        for s in mc["sensors"]:
+            sid = s["sensor_id"]
+            series_list = hourly.get(sid, [])
+            series = {b["bucket"]: b["avg_value"] for b in series_list if b["avg_value"] is not None}
+            if len(series) >= 3:
+                observations.append({
+                    "metric_key": mk,
+                    "sensor_id": sid,
+                    "lat": s["lat"],
+                    "lon": s["lon"],
+                    "series": series,
+                })
+
+    results: list[dict[str, Any]] = []
+    n = len(observations)
+    for i in range(n):
+        for j in range(i + 1, n):
+            a = observations[i]
+            b = observations[j]
+            dist = _haversine(a["lat"], a["lon"], b["lat"], b["lon"])
+            if dist > max_distance:
+                continue
+
+            common_keys = [k for k in a["series"] if k in b["series"]]
+            if len(common_keys) < 3:
+                continue
+
+            vals_a = [a["series"][k] for k in common_keys]
+            vals_b = [b["series"][k] for k in common_keys]
+            corr = _pearson_correlation(vals_a, vals_b)
+
+            if abs(corr) > min_correlation:
+                results.append({
+                    "sensor_a": a["sensor_id"],
+                    "sensor_b": b["sensor_id"],
+                    "metric_a": a["metric_key"],
+                    "metric_b": b["metric_key"],
+                    "correlation": round(corr, 4),
+                    "distance_meters": round(dist, 1),
+                })
+
+    return results
+
+
+async def _collect_metric_context(
+    metric_key: str, bbox: BBoxModel, db: AsyncSession
+) -> tuple[dict[str, Any] | None, dict[str, list[dict[str, Any]]]]:
+    metric_result = await db.execute(
+        select(models.MetricDefinition).where(models.MetricDefinition.key == metric_key)
+    )
+    metric = metric_result.scalar_one_or_none()
+    if not metric:
+        return None, {}
+
+    sensors_result = await db.execute(
+        select(models.Sensor).where(
+            models.Sensor.status == "active",
+            models.Sensor.latitude >= bbox.south,
+            models.Sensor.latitude <= bbox.north,
+            models.Sensor.longitude >= bbox.west,
+            models.Sensor.longitude <= bbox.east,
+        )
+    )
+    sensors = sensors_result.scalars().all()
+    if not sensors:
+        return None, {}
+
+    sensor_ids = [str(s.id) for s in sensors]
+    sensor_map = {str(s.id): s for s in sensors}
+
+    latest_readings = await redis_manager.get_all_latest_readings(sensor_ids)
+
+    sensors_with_vals: list[dict[str, Any]] = []
+    sensors_needing_db: list[str] = []
+
+    for sid in sensor_ids:
+        latest = latest_readings.get(sid)
+        if latest and isinstance(latest, dict) and "metrics" in latest and metric_key in latest["metrics"]:
+            sensors_with_vals.append({"sensor": sensor_map[sid], "value": latest["metrics"][metric_key]})
+        else:
+            sensors_needing_db.append(sid)
+
+    if sensors_needing_db:
+        since = datetime.now(timezone.utc) - timedelta(hours=24)
+        latest_times_subq = (
+            select(
+                models.SensorReading.sensor_id,
+                func.max(models.SensorReading.time).label("max_time"),
+            )
+            .where(
+                models.SensorReading.metric_id == metric.id,
+                models.SensorReading.time >= since,
+                models.SensorReading.sensor_id.in_(sensors_needing_db),
+            )
+            .group_by(models.SensorReading.sensor_id)
+            .subquery()
+        )
+        db_latest = (
+            select(
+                models.SensorReading.sensor_id,
+                models.SensorReading.value_numeric,
+            )
+            .join(
+                latest_times_subq,
+                and_(
+                    models.SensorReading.sensor_id == latest_times_subq.c.sensor_id,
+                    models.SensorReading.time == latest_times_subq.c.max_time,
+                ),
+            )
+            .where(models.SensorReading.metric_id == metric.id)
+        )
+        db_rows = (await db.execute(db_latest)).all()
+        for row in db_rows:
+            if row.value_numeric is not None:
+                sensors_with_vals.append({"sensor": sensor_map[row.sensor_id], "value": row.value_numeric})
+
+    if not sensors_with_vals:
+        return None, {}
+
+    all_sids = [str(s["sensor"].id) for s in sensors_with_vals]
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    hourly_query = text("""
+        SELECT sensor_id, bucket, avg_value
+        FROM sensor_readings_hourly
+        WHERE metric_id = :metric_id
+          AND sensor_id = ANY(:sensor_ids)
+          AND bucket >= :since
+        ORDER BY sensor_id, bucket ASC
+    """)
+    hourly_rows = (await db.execute(
+        hourly_query,
+        {"metric_id": metric.id, "sensor_ids": all_sids, "since": since},
+    )).all()
+
+    hourly_map: dict[str, list[dict[str, Any]]] = {}
+    for row in hourly_rows:
+        sid = row.sensor_id
+        if sid not in hourly_map:
+            hourly_map[sid] = []
+        hourly_map[sid].append({
+            "bucket": row.bucket.isoformat() if hasattr(row.bucket, "isoformat") else str(row.bucket),
+            "avg_value": row.avg_value,
+        })
+
+    result_sensors: list[dict[str, Any]] = []
+    for entry in sensors_with_vals:
+        sensor = entry["sensor"]
+        sid = str(sensor.id)
+        current_value = entry["value"]
+        hourly_data = hourly_map.get(sid, [])
+        avg_24h = sum(h["avg_value"] for h in hourly_data) / len(hourly_data) if hourly_data else None
+
+        trend = "stable"
+        if hourly_data and len(hourly_data) >= 2 and avg_24h is not None:
+            diff = current_value - avg_24h
+            threshold = abs(avg_24h) * 0.05 if avg_24h != 0 else 0.01
+            if diff > threshold:
+                trend = "up"
+            elif diff < -threshold:
+                trend = "down"
+
+        result_sensors.append({
+            "sensor_id": sid,
+            "name": sensor.name,
+            "lat": sensor.latitude,
+            "lon": sensor.longitude,
+            "current_value": current_value,
+            "avg_24h": avg_24h,
+            "trend": trend,
+        })
+
+    return {
+        "unit": metric.unit,
+        "sensors": result_sensors,
+    }, hourly_map
+
+
+@router.post("/analyze")
+async def analyze_endpoint(
+    req: AnalyzeRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    context_metrics: dict[str, Any] = {}
+    hourly_maps: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    for mk in req.metric_keys:
+        mc, hm = await _collect_metric_context(mk, req.bbox, db)
+        if mc:
+            context_metrics[mk] = mc
+            hourly_maps[mk] = hm
+
+    if not context_metrics:
+        return []
+
+    correlations = _compute_correlations(context_metrics, hourly_maps)
+
+    context: dict[str, Any] = {
+        "analysis_type": req.analysis_type,
+        "metrics": context_metrics,
+    }
+    if correlations:
+        context["correlations"] = correlations
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="ANTHROPIC_API_KEY not configured",
+        )
+
+    import anthropic
+
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+    system_prompt = (
+        "You are a city intelligence analyst. You receive real sensor data from a smart city "
+        "platform and return actionable insights as structured JSON only. Never return prose outside the JSON. "
+        "Pay special attention to the correlations array — these are metrics that move together in the same "
+        "geographic area. Use them to generate multi-metric insights that would not be visible from any single layer alone."
+    )
+    user_prompt = (
+        "Analyze this smart city sensor data and return a JSON array of suggestions. "
+        "Each suggestion must have:\n"
+        "- id: unique string\n"
+        "- type: one of \"opportunity\" | \"risk\" | \"recommendation\" | \"alert\"\n"
+        "- title: short title (max 8 words)\n"
+        "- description: 2-3 sentence explanation referencing the actual data values\n"
+        "- lat: float (center latitude of the relevant area)\n"
+        "- lon: float (center longitude of the relevant area)\n"
+        "- radius_meters: int (affected area radius)\n"
+        "- severity: \"low\" | \"medium\" | \"high\"\n"
+        "- metrics_involved: [metric_key strings]\n"
+        "- confidence: float 0-1\n\n"
+        "Base lat/lon on the sensor locations in the data. "
+        "Return only the JSON array, no wrapper object.\n\n"
+        f"Data: {json.dumps(context)}"
+    )
+
+    try:
+        response = await client.messages.create(
+            model="claude-sonnet-4-20250514",
+            max_tokens=4096,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+
+        input_tokens = response.usage.input_tokens
+        output_tokens = response.usage.output_tokens
+        logger.info(
+            "Anthropic API call completed",
+            extra={
+                "analysis_type": req.analysis_type,
+                "input_tokens": input_tokens,
+                "output_tokens": output_tokens,
+                "metric_keys": list(context_metrics.keys()),
+            },
+        )
+
+        content = response.content[0].text
+        suggestions = json.loads(content)
+        if not isinstance(suggestions, list):
+            raise ValueError("Response is not a JSON array")
+
+        required = {"id", "type", "title", "description", "lat", "lon", "radius_meters", "severity", "metrics_involved", "confidence"}
+        valid_types = {"opportunity", "risk", "recommendation", "alert"}
+        valid_severity = {"low", "medium", "high"}
+
+        validated: list[dict[str, Any]] = []
+        for s in suggestions:
+            if not required.issubset(s.keys()):
+                continue
+            if s["type"] not in valid_types:
+                continue
+            if s["severity"] not in valid_severity:
+                continue
+            if not isinstance(s["confidence"], (int, float)) or not 0 <= s["confidence"] <= 1:
+                continue
+            validated.append(s)
+
+        bhash = _bbox_hash(req.bbox)
+        cache_key = f"intelligence:{req.analysis_type}:{bhash}"
+        if redis_manager.client:
+            await redis_manager.client.setex(cache_key, 1800, json.dumps(validated, default=str))
+
+        return validated
+
+    except Exception as e:
+        logger.error("Anthropic API call failed", extra={"error": str(e), "analysis_type": req.analysis_type})
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"AI analysis failed: {e}",
+        )
+
+
+@router.get("/suggestions")
+async def get_suggestions(
+    analysis_type: str = Query(...),
+    north: float = Query(...),
+    south: float = Query(...),
+    east: float = Query(...),
+    west: float = Query(...),
+):
+    bbox = BBoxModel(north=north, south=south, east=east, west=west)
+    bhash = _bbox_hash(bbox)
+    cache_key = f"intelligence:{analysis_type}:{bhash}"
+
+    if redis_manager.client:
+        cached = await redis_manager.client.get(cache_key)
+        if cached:
+            return json.loads(cached)
+    return []
