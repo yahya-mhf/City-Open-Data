@@ -182,17 +182,16 @@ async def chat_message(
 
     context_data = await build_context(req.context, db)
 
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="GEMINI_API_KEY not configured",
+            detail="GROQ_API_KEY not configured",
         )
 
-    from google import genai
-    from google.genai import types
+    from openai import AsyncOpenAI
 
-    client = genai.Client(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
 
     system_prompt = _make_system_prompt(
         json.dumps(context_data, default=str),
@@ -200,24 +199,24 @@ async def chat_message(
         req.context.current_page or "",
     )
 
-    gemini_contents = "\n".join(
-        f"{m['role']}: {m['content']}" for m in messages
-    )
+    groq_messages = [
+        {"role": "system", "content": system_prompt},
+        *[{"role": m["role"], "content": m["content"]} for m in messages],
+    ]
 
     async def generate():
         full_response = ""
-        stream = await client.aio.models.generate_content_stream(
-            model="gemini-2.0-flash",
-            contents=gemini_contents,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                max_output_tokens=4096,
-            ),
+        stream = await client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=groq_messages,
+            max_tokens=4096,
+            stream=True,
         )
         async for chunk in stream:
-            if chunk.text:
-                full_response += chunk.text
-                yield f"data: {json.dumps({'delta': chunk.text})}\n\n"
+            delta = chunk.choices[0].delta.content or ""
+            if delta:
+                full_response += delta
+                yield f"data: {json.dumps({'delta': delta})}\n\n"
         yield "data: [DONE]\n\n"
 
         if redis_manager.client:

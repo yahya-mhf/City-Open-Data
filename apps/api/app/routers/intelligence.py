@@ -274,17 +274,16 @@ async def analyze_endpoint(
     if correlations:
         context["correlations"] = correlations
 
-    api_key = os.getenv("GEMINI_API_KEY")
+    api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="GEMINI_API_KEY not configured",
+            detail="GROQ_API_KEY not configured",
         )
 
-    from google import genai
-    from google.genai import types
+    from openai import AsyncOpenAI
 
-    client = genai.Client(api_key=api_key)
+    client = AsyncOpenAI(api_key=api_key, base_url="https://api.groq.com/openai/v1")
     system_prompt = (
         "You are a city intelligence analyst. You receive real sensor data from a smart city "
         "platform and return actionable insights as structured JSON only. Never return prose outside the JSON. "
@@ -310,19 +309,20 @@ async def analyze_endpoint(
     )
 
     try:
-        response = await client.aio.models.generate_content(
-            model="gemini-2.0-flash",
-            contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_prompt,
-                max_output_tokens=4096,
-            ),
+        response = await client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            max_tokens=4096,
+            response_format={"type": "json_object"},
         )
 
-        input_tokens = response.usage_metadata.prompt_token_count if response.usage_metadata else 0
-        output_tokens = response.usage_metadata.candidates_token_count if response.usage_metadata else 0
+        input_tokens = response.usage.prompt_tokens if response.usage else 0
+        output_tokens = response.usage.completion_tokens if response.usage else 0
         logger.info(
-            "Gemini API call completed",
+            "Groq API call completed",
             extra={
                 "analysis_type": req.analysis_type,
                 "input_tokens": input_tokens,
@@ -331,7 +331,7 @@ async def analyze_endpoint(
             },
         )
 
-        content = response.text
+        content = response.choices[0].message.content
         suggestions = json.loads(content)
         if not isinstance(suggestions, list):
             raise ValueError("Response is not a JSON array")
@@ -360,7 +360,7 @@ async def analyze_endpoint(
         return validated
 
     except Exception as e:
-        logger.error("Gemini API call failed", extra={"error": str(e), "analysis_type": req.analysis_type})
+        logger.error("Groq API call failed", extra={"error": str(e), "analysis_type": req.analysis_type})
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"AI analysis failed: {e}",

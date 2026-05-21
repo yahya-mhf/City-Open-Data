@@ -12,7 +12,7 @@ x-shared-env: &shared-env
   CORS_ORIGINS: http://localhost:3000,http://localhost
   ENVIRONMENT: development
   LOG_LEVEL: INFO
-  GEMINI_API_KEY: ${GEMINI_API_KEY}
+  GROQ_API_KEY: ${GROQ_API_KEY}
 
 services:
   timescaledb:
