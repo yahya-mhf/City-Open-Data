@@ -164,7 +164,7 @@ export function removeSensorLayers(map: maplibregl.Map, sourceId: string) {
 export function setupSensorInteraction(
   map: maplibregl.Map,
   sourceId: string,
-  onClick: (id: string) => void,
+  onClick: (id: string, lng: number, lat: number) => void,
 ) {
   const dotLayer = `${sourceId}-dot`;
   let popup: maplibregl.Popup | null = null;
@@ -240,8 +240,11 @@ export function setupSensorInteraction(
   });
 
   map.on("click", dotLayer, (e) => {
-    const id = e.features?.[0]?.properties?.id;
-    if (id) onClick(id);
+    const feature = e.features?.[0];
+    if (!feature) return;
+    const id = feature.properties?.id;
+    const coords = (feature.geometry as GeoJSON.Point).coordinates;
+    if (id) onClick(id, coords[0], coords[1]);
   });
 }
 
