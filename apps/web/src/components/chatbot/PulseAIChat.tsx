@@ -218,7 +218,7 @@ export default function PulseAIChat() {
           current_metric: pathname.startsWith("/maps/")
             ? pathname.split("/maps/")[1] || null
             : null,
-          map_bounds: ctx.map_bounds,
+          map_bounds: ctx.map_bounds ?? { north: 0, south: 0, east: 0, west: 0 },
           visible_sensors: ctx.visible_sensors,
         },
       };

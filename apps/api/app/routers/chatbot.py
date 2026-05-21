@@ -37,7 +37,7 @@ class MapBounds(BaseModel):
 class Context(BaseModel):
     current_page: str = ""
     current_metric: str | None = None
-    map_bounds: MapBounds = Field(default_factory=MapBounds)
+    map_bounds: MapBounds | None = None
     visible_sensors: list[str] = Field(default_factory=list)
 
 
