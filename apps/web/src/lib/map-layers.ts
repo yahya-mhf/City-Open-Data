@@ -80,21 +80,87 @@ export function addSensorLayers(
   sourceId: string,
   beforeId?: string,
 ) {
-  const src = map.getSource(sourceId) as maplibregl.GeoJSONSource | undefined;
-  if (src) {
-    try { map.removeLayer(`${sourceId}-pulse`); } catch {}
-    try { map.removeLayer(`${sourceId}-dot`); } catch {}
-    try { map.removeLayer(`${sourceId}-label`); } catch {}
+  const existingSource = map.getSource(sourceId);
+  if (existingSource) {
+    for (const id of [
+      `${sourceId}-cluster`,
+      `${sourceId}-cluster-count`,
+      `${sourceId}-pulse`,
+      `${sourceId}-dot`,
+      `${sourceId}-label`,
+    ]) {
+      try { map.removeLayer(id); } catch {}
+    }
     try { map.removeSource(sourceId); } catch {}
   }
 
-  map.addSource(sourceId, { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+  map.addSource(sourceId, {
+    type: "geojson",
+    data: { type: "FeatureCollection", features: [] },
+    cluster: true,
+    clusterMaxZoom: 14,
+    clusterRadius: 50,
+  });
+
+  map.addLayer(
+    {
+      id: `${sourceId}-cluster`,
+      type: "circle",
+      source: sourceId,
+      filter: ["has", "point_count"],
+      paint: {
+        "circle-color": [
+          "step",
+          ["get", "point_count"],
+          "#3b82f6",
+          10,
+          "#f59e0b",
+          50,
+          "#ef4444",
+        ],
+        "circle-radius": [
+          "step",
+          ["get", "point_count"],
+          18,
+          10,
+          24,
+          50,
+          30,
+        ],
+        "circle-opacity": 0.85,
+        "circle-stroke-width": 3,
+        "circle-stroke-color": "#ffffff",
+      },
+    },
+    beforeId,
+  );
+
+  map.addLayer(
+    {
+      id: `${sourceId}-cluster-count`,
+      type: "symbol",
+      source: sourceId,
+      filter: ["has", "point_count"],
+      layout: {
+        "text-field": ["get", "point_count_abbreviated"],
+        "text-size": 13,
+        "text-allow-overlap": true,
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+      },
+      paint: {
+        "text-color": "#ffffff",
+      },
+    },
+    beforeId,
+  );
 
   map.addLayer(
     {
       id: `${sourceId}-pulse`,
       type: "circle",
       source: sourceId,
+      filter: ["!", ["has", "point_count"]],
+      minzoom: 14,
       paint: {
         "circle-radius": 22,
         "circle-color": statusColor(),
@@ -110,6 +176,8 @@ export function addSensorLayers(
       id: `${sourceId}-dot`,
       type: "circle",
       source: sourceId,
+      filter: ["!", ["has", "point_count"]],
+      minzoom: 14,
       paint: {
         "circle-radius": 14,
         "circle-color": statusColor(),
@@ -126,6 +194,8 @@ export function addSensorLayers(
       id: `${sourceId}-label`,
       type: "symbol",
       source: sourceId,
+      filter: ["!", ["has", "point_count"]],
+      minzoom: 14,
       layout: {
         "text-field": ["get", "value"],
         "text-size": 11,
@@ -155,9 +225,15 @@ export function updateSensorSource(
 }
 
 export function removeSensorLayers(map: maplibregl.Map, sourceId: string) {
-  try { map.removeLayer(`${sourceId}-pulse`); } catch {}
-  try { map.removeLayer(`${sourceId}-dot`); } catch {}
-  try { map.removeLayer(`${sourceId}-label`); } catch {}
+  for (const id of [
+    `${sourceId}-cluster`,
+    `${sourceId}-cluster-count`,
+    `${sourceId}-pulse`,
+    `${sourceId}-dot`,
+    `${sourceId}-label`,
+  ]) {
+    try { map.removeLayer(id); } catch {}
+  }
   try { map.removeSource(sourceId); } catch {}
 }
 
@@ -167,6 +243,7 @@ export function setupSensorInteraction(
   onClick: (id: string, lng: number, lat: number) => void,
 ) {
   const dotLayer = `${sourceId}-dot`;
+  const clusterLayer = `${sourceId}-cluster`;
   let popup: maplibregl.Popup | null = null;
 
   function buildPopupHTML(props: Record<string, unknown>): string {
@@ -245,6 +322,26 @@ export function setupSensorInteraction(
     const id = feature.properties?.id;
     const coords = (feature.geometry as GeoJSON.Point).coordinates;
     if (id) onClick(id, coords[0], coords[1]);
+  });
+
+  map.on("mouseenter", clusterLayer, () => {
+    map.getCanvas().style.cursor = "pointer";
+  });
+
+  map.on("mouseleave", clusterLayer, () => {
+    map.getCanvas().style.cursor = "";
+  });
+
+  map.on("click", clusterLayer, async (e) => {
+    const feature = e.features?.[0];
+    if (!feature) return;
+    const clusterId = feature.properties?.cluster_id;
+    const source = map.getSource(sourceId) as maplibregl.GeoJSONSource;
+    if (clusterId != null && source.getClusterExpansionZoom) {
+      const zoom = await source.getClusterExpansionZoom(clusterId);
+      const coords = (feature.geometry as GeoJSON.Point).coordinates;
+      map.flyTo({ center: [coords[0], coords[1]], zoom: zoom + 1, duration: 600 });
+    }
   });
 }
 
