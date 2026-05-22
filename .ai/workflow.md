@@ -1,87 +1,65 @@
 # Urban Pulse — Development Workflow
 
-## Repository Structure
+## How to start every session
 
-```
-/
-├── .ai/                   # AI coding context (rules, arch, workflow, tasks)
-├── .github/workflows/     # GitHub Actions
-├── apps/
-│   ├── api/               # FastAPI backend
-│   │   └── app/
-│   │       ├── api/v1/endpoints/   # Route handlers by domain
-│   │       ├── core/               # Dependencies, Redis, MinIO, WS
-│   │       ├── routers/            # Maps, forecast, intelligence, chatbot
-│   │       └── scripts/            # seed.py
-│   ├── web/               # Next.js frontend
-│   │   └── src/
-│   │       ├── app/       # App router pages
-│   │       ├── components/ # Shared React components
-│   │       ├── lib/        # API client, auth, theme, MapLibre
-│   │       └── workers/    # Web Workers (IDW interpolation)
-│   └── simulator/         # Sensor data simulator
-├── packages/
-│   ├── shared/            # Config, enums, schemas (Pydantic)
-│   ├── database/          # SQLAlchemy models, migrations
-│   ├── auth/              # JWT + RBAC helpers
-│   └── observability/     # Logging setup
-├── docker-compose.yml
-├── seed_historical.py     # 90-day historical data seeder
-└── SETUP.md               # Configuration guide
-```
+Before writing any code, always:
 
-## Local Development
+1. Read `.ai/tasks.md` — understand the current objective
+2. Read `.ai/rules.md` — internalize what is and isn't allowed
+3. Read `.ai/architecture.md` — understand which systems are impacted
+4. Search the codebase for the most similar existing implementation to the task
+5. Only then begin planning and writing
 
-### Start all services
+---
+
+## Execution process
+
+For every task, follow this order:
+
+1. **Analyze** — identify every file that needs to change
+2. **Plan** — list the changes before making them
+3. **Implement deeply** — no stubs, no TODOs, no partial work
+4. **Validate** — run type check, lint, verify runtime imports
+5. **Inspect edge cases** — empty data, loading states, error states, dark mode
+6. **Refactor** — clean dead code, improve any weak architecture touched during the task
+7. **Verify coherence** — surrounding systems still work correctly
+8. **Update tasks.md** — mark the task done, note anything discovered
+
+Continue iterating until no obvious weaknesses remain in the area you touched.
+
+---
+
+## Local development
 
 ```bash
-# Infrastructure (first terminal)
+# Start infrastructure
 docker compose up -d timescaledb redis rabbitmq minio
 
-# API (second terminal)
+# Start API
 docker compose up -d api
 docker compose logs -f api
 
-# Frontend (third terminal)
+# Start frontend
 cd apps/web && npm run dev
-```
 
-### Docker-free API (if Docker build fails)
-
-```bash
-# Install deps on host
-pip install poetry
-cd apps/api && poetry install
-cd packages/shared && poetry install
-cd ../database && poetry install
-cd ../auth && poetry install
-cd ../observability && poetry install
-cd ../../apps/api
-
-# Run with host Python
-poetry run uvicorn app.main:app --reload
-```
-
-### Seed data
-
-```bash
-# Initial schema + metric definitions + sensors
+# Seed schema + sensors + metric definitions (first time only)
 docker exec sc-api-1 poetry run python -m app.scripts.seed
 
-# Historical readings (90 days)
+# Seed 90 days of historical data
 docker cp seed_historical.py sc-api-1:/app/seed_historical.py
 docker exec sc-api-1 python /app/seed_historical.py --days 90
 
-# Hourly live injection (via GitHub Actions or manual)
+# Manually trigger live seed
 curl -X POST http://localhost:8000/internal/seed-latest \
   -H "INTERNAL_SECRET: your-secret"
 ```
 
-### Code changes
+**Hot reload:**
+- API: uvicorn `--reload` watches `/app/apps/api` and `/app/packages`
+- Frontend: Next.js fast refresh on save
+- Simulator / Worker: restart container after changes
 
-- **API:** Backend hot-reloads via `uvicorn --reload` watching `/app/apps/api` and `/app/packages`
-- **Frontend:** Next.js fast refresh on save
-- **Simulator/Worker:** Must restart container after changes (not bind-mounted for reload)
+---
 
 ## Testing
 
@@ -89,33 +67,31 @@ curl -X POST http://localhost:8000/internal/seed-latest \
 # Backend
 cd apps/api && poetry run pytest -v
 
-# Frontend
-cd apps/web && npm test  # jest
-npm run lint             # next lint
-npx tsc --noEmit         # type check
+# Frontend type check
+cd apps/web && npx tsc --noEmit
+
+# Frontend lint
+cd apps/web && npm run lint
+
+# Frontend unit tests
+cd apps/web && npm test
 ```
 
-## Commit Convention
+---
 
-Use [Conventional Commits](https://www.conventionalcommits.org/):
+## Branch strategy
 
-```
-feat: new sensor types, hero redesign
-fix: chatbot send button not working
-docs: add setup guide
-refactor: replace Marker() with GeoJSON layers
-chore: update dependencies
-```
+- `main` — production-ready, auto-deployed via GitHub Actions
+- `feat/<name>` — feature branches, squash-merge to main
+- `fix/<name>` — bug fix branches
 
-## Branch Strategy
+---
 
-- `main` — production-ready, deployed automatically
-- Feature branches: `feat/<name>` — squash-merge to main
-- Fix branches: `fix/<name>`
+## Before merging to main
 
-## Before Committing
-
-1. Run `npx tsc --noEmit` in `apps/web/` (frontend)
-2. Run `ruff check .` in `apps/api/` (backend lint)
-3. Verify `docker compose ps` shows all services healthy
-4. Check `.env` is NOT staged (`git status` should NOT show `.env`)
+- [ ] `npx tsc --noEmit` passes
+- [ ] `ruff check .` passes
+- [ ] All services healthy (`docker compose ps`)
+- [ ] Dark mode tested visually
+- [ ] No `.env` staged
+- [ ] `tasks.md` updated

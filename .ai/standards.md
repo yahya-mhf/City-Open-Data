@@ -2,111 +2,152 @@
 
 ## Python (Backend)
 
-### Style
-- Follow PEP 8 (enforced by Ruff).
-- Max line length: 120 characters.
-- Use type hints on all function signatures.
-- Use `async def` for all endpoint handlers and DB operations.
-- No comments in production code — code should be self-documenting.
+- PEP 8, enforced by Ruff. Max line length: 120.
+- Type hints on every function signature — no bare `def`.
+- `async def` for all endpoints and DB operations.
+- No comments in production code — name things so they explain themselves.
 
-### Imports
-Order:
-1. Standard library (`asyncio`, `datetime`, etc.)
-2. Third-party (`fastapi`, `sqlalchemy`, etc.)
-3. First-party packages (`smart_city_shared`, `smart_city_database`, etc.)
-4. Relative local imports (`.core.dependencies`, `..models`)
+**Import order:**
+1. Standard library (`asyncio`, `datetime`, `uuid`)
+2. Third-party (`fastapi`, `sqlalchemy`, `pydantic`)
+3. First-party packages (`smart_city_shared`, `smart_city_database`, `smart_city_auth`)
+4. Relative local (`.core.dependencies`, `..models`)
 
-### Naming
-- `snake_case` for functions, variables, file names
-- `PascalCase` for classes, enums, Pydantic models
-- `UPPER_CASE` for constants
-- Router files are named after their domain: `sensors.py`, `alerts.py`, `maps.py`
-- Router variables always named `router = APIRouter()`
+**Naming:**
+- `snake_case` — functions, variables, file names
+- `PascalCase` — classes, enums, Pydantic models
+- `UPPER_CASE` — constants
+- Router files named after domain: `sensors.py`, `alerts.py`, `analytics.py`
+- Router variable always: `router = APIRouter()`
 
-### FastAPI Patterns
+**Endpoint pattern:**
 ```python
-@router.get("/path")
-async def handler(
+@router.get("/path", response_model=MyResponse)
+async def handler_name(
     param: str = Query(...),
     db: AsyncSession = Depends(get_db),
     user: dict = Depends(get_current_user),
-):
+) -> MyResponse:
     ...
 ```
 
-### Error Handling
-- Use `HTTPException` with appropriate status codes.
-- Catch exceptions at the handler level with `try/except`.
-- Use `from smart_city_auth import RBACHelper` for permission checks.
+**Error handling:**
+```python
+try:
+    result = await db.execute(select(Model).where(...))
+except Exception as e:
+    raise HTTPException(status_code=500, detail=str(e))
+```
+
+---
 
 ## TypeScript / React (Frontend)
 
-### Style
-- Use `"use client"` for all interactive components.
-- Use `interface` over `type` for object shapes.
-- Use `const` for all values; avoid `let` unless reassignment is required.
+- `"use client"` on every interactive component.
+- `interface` over `type` for object shapes.
+- `const` for everything; `let` only when reassignment is truly needed.
 - No `any` — use proper types or `unknown`.
+- No inline `style={}` — Tailwind only.
 
-### Naming
-- `PascalCase` for components and interfaces
-- `camelCase` for functions, variables, instances
-- `UPPER_CASE` for constants
-- File names: `kebab-case.tsx` for page routes, `PascalCase.tsx` for components
+**Naming:**
+- `PascalCase` — components, interfaces
+- `camelCase` — functions, variables, hooks
+- `UPPER_CASE` — constants (`UNIT_MAP`, `METRIC_ICONS`)
+- File names: `kebab-case.tsx` for pages, `PascalCase.tsx` for components
 
-### Component Pattern
+**Component pattern:**
 ```tsx
 "use client";
 import { useState, useEffect } from "react";
 import { useTheme } from "@/lib/theme-context";
+import { useAuth } from "@/lib/auth-context";
 
-export default function MyComponent({ prop }: { prop: string }) {
+interface MyComponentProps {
+  sensorId: string;
+}
+
+export default function MyComponent({ sensorId }: MyComponentProps) {
   const { nightMode } = useTheme();
+  const { user } = useAuth();
   // ...
 }
 ```
 
-### Tailwind
-- Use Tailwind classes exclusively — no inline `style={}` props.
-- Dark mode: prefix with `dark:` using `night-*` color tokens.
-- Responsive: `sm:`, `md:`, `lg:` breakpoints.
-- Common patterns:
-  - Cards: `bg-white dark:bg-night-secondary rounded-xl shadow p-6`
-  - Headers: `bg-white/70 dark:bg-night-secondary/70 backdrop-blur-md border-b`
-  - Buttons: `px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700`
-  - Links: `text-gray-600 dark:text-gray-300 hover:text-primary-600`
-  - Loading: `text-gray-500 text-center py-12`
+**Tailwind patterns:**
+```
+Card:       bg-white dark:bg-night-secondary rounded-xl shadow p-6
+Header:     bg-white/70 dark:bg-night-secondary/70 backdrop-blur-md border-b border-gray-200 dark:border-night-border
+Button:     px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors
+Link:       text-gray-600 dark:text-gray-300 hover:text-primary-600
+Loading:    text-gray-500 dark:text-gray-400 text-center py-12
+Error:      text-red-500 text-center py-12
+Badge ok:   bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+Badge warn: bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400
+Badge crit: bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+```
 
-### Charts (Recharts)
+---
+
+## Recharts
+
 ```tsx
-<ResponsiveContainer width="100%" height={200}>
+<ResponsiveContainer width="100%" height={240}>
   <LineChart data={data}>
-    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-    <XAxis dataKey="time" tick={{ fontSize: 10 }} />
-    <YAxis tick={{ fontSize: 10 }} />
-    <Tooltip />
+    <CartesianGrid strokeDasharray="3 3" stroke={nightMode ? "#374151" : "#e5e7eb"} />
+    <XAxis dataKey="time" tick={{ fontSize: 10, fill: nightMode ? "#9ca3af" : "#6b7280" }} />
+    <YAxis tick={{ fontSize: 10, fill: nightMode ? "#9ca3af" : "#6b7280" }} />
+    <Tooltip
+      contentStyle={{
+        backgroundColor: nightMode ? "#1f2937" : "#fff",
+        border: "1px solid #374151",
+        borderRadius: 8,
+      }}
+    />
     <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} dot={false} />
   </LineChart>
 </ResponsiveContainer>
 ```
 
-## MapLibre Patterns
-- Dynamic import with `ssr: false` and loading fallback.
-- `interactive: false` for background/decorative maps.
-- Use `useRef<maplibregl.Map | null>(null)` for instance tracking.
-- Clean up with `map.remove()` in the `useEffect` return.
-- Tile styles from `@/lib/map-styles` (`LIGHT_STYLE` / `DARK_STYLE`).
-- GeoJSON circle layers over DOM `Marker()` for performance.
-- Cluster mode enabled on sensor sources.
+Colors: blue `#2563eb`, indigo `#4f46e5`, green `#16a34a`, amber `#d97706`, red `#dc2626`.
 
-## Database
+---
 
-- All tables use UUID primary keys or composite keys.
-- `sensor_readings` is a TimescaleDB hypertable partitioned by `time`.
-- Metric keys are unique strings stored in `metric_definitions`.
-- Queries use SQLAlchemy ORM `select()` with `.where()` — no raw SQL except for bulk inserts.
+## MapLibre
+
+```tsx
+// Always dynamic import
+const Map = dynamic(() => import("@/components/maps/ThematicMap"), {
+  ssr: false,
+  loading: () => <div className="h-full bg-gray-100 dark:bg-night-secondary animate-pulse rounded-xl" />,
+});
+
+// Instance tracking
+const mapRef = useRef<maplibregl.Map | null>(null);
+
+// Cleanup
+useEffect(() => {
+  return () => { mapRef.current?.remove(); };
+}, []);
+
+// GeoJSON layers over DOM Markers
+map.addSource("sensors", { type: "geojson", data: geojson, cluster: true });
+map.addLayer({ id: "sensor-dots", type: "circle", source: "sensors", paint: { ... } });
+```
+
+Tile styles from `@/lib/map-styles`: use `LIGHT_STYLE` / `DARK_STYLE` based on `nightMode`.
+
+---
 
 ## Git
 
-- Conventional Commits for commit messages.
-- Keep commits focused — one logical change per commit.
-- Never commit: `.env`, `node_modules/`, `__pycache__/`, `.next/`, `*.pyc`.
+- Conventional Commits: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`
+- One logical change per commit — atomic and reviewable
+- Never stage: `.env`, `node_modules/`, `__pycache__/`, `.next/`, `*.pyc`
+
+**Before every commit:**
+```bash
+cd apps/web && npx tsc --noEmit   # type check
+cd apps/api && ruff check .        # lint
+docker compose ps                  # all services healthy
+git status                         # .env not staged
+```
