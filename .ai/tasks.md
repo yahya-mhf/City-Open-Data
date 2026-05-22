@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**19 / 28 tasks complete**
+**20 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -169,7 +169,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Each card: description, last updated, quick stats
   - Fix broken back-link from `/analytics/correlations`
 
-- ❌ **R4.2** Create `/reports/my` page
+- ✅ **R4.2** Create `/reports/my` page
   - Calls `/api/v1/reports/me`
   - Report list with status badges, timestamps, location, category
   - Status timeline indicator
@@ -218,6 +218,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R3.5: `/intelligence/analyze` now prompts for and parses a JSON array without conflicting JSON-object response mode, accepts a `suggestions` wrapper defensively, and returns `{ available: false, reason: "AI service not configured" }` when Groq is missing. The frontend API client turns this into an explicit visible error. `python -m py_compile apps/api/app/routers/intelligence.py` and `npx tsc --noEmit` pass.
 - R3.6: Sensor latest now checks sensor existence and returns 404 for unknown IDs, sensor stats only list metric definitions that have readings for that sensor, histogram max values clamp into the final bucket, report creation uses real sensor coordinates when `sensor_id` is provided, and report listing accepts both `status_filter` and `status`. `python -m py_compile apps/api/app/api/v1/endpoints/sensors.py apps/api/app/api/v1/endpoints/reports.py` and `npx tsc --noEmit` pass.
 - R4.1: Added `/analytics` landing page with Correlations, Anomalies, Export, and City Health tool cards, active metric count, and city-health freshness context. Correlations now has a real back-link target. `npx tsc --noEmit` passes.
+- R4.2: Added `/reports/my`, backed by `/api/v1/reports/me`, with report list cards, status badges, status timeline, timestamps, coordinates, and a MapLibre report-location map. Dashboard "My Reports" now links to `/reports/my`. `npx tsc --noEmit` passes.
 
 ---
 

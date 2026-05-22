@@ -80,7 +80,7 @@ function DashboardContent() {
             <h3 className="text-lg font-semibold">Submit Report</h3>
             <p className="text-gray-600 mt-2 dark:text-gray-400">Report an issue in your city</p>
           </Link>
-          <Link href="/reports" className="block rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-primary-200 hover:shadow-md dark:border-night-border dark:bg-night-secondary">
+          <Link href="/reports/my" className="block rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-primary-200 hover:shadow-md dark:border-night-border dark:bg-night-secondary">
             <h3 className="text-lg font-semibold">My Reports</h3>
             <p className="text-gray-600 mt-2 dark:text-gray-400">Track your submitted reports</p>
           </Link>
