@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**16 / 28 tasks complete**
+**17 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -149,7 +149,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Fix concurrent SQLAlchemy async session usage in fan-out — use separate sessions per task
   - Return `data_available: false` when insufficient historical data
 
-- ❌ **R3.5** Fix intelligence analyze endpoint
+- ✅ **R3.5** Fix intelligence analyze endpoint
   - `response_format=json_object` conflicts with parsing response as array — fix the prompt to explicitly request a JSON array, then parse correctly
   - Return `{ available: false, reason: "AI service not configured" }` when Groq key missing
   - Frontend must display this state explicitly
@@ -215,6 +215,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R3.2: Added `apps/api/app/services/city_health.py` and routed `/api/v1/city-health` through it. The service caches in Redis for 5 minutes, returns null scores with `data_available: false` when source data is missing, and builds normalized sparklines. Updated frontend city-health types/rendering to handle null scores. `python -m py_compile apps/api/app/main.py apps/api/app/services/city_health.py` and `npx tsc --noEmit` pass.
 - R3.3: Correlations now require JWT auth, aggregate hourly values by metric timestamp, align metric pairs by shared timestamp buckets, and skip pairs with fewer than 100 shared buckets. The correlations page sends the auth token. `python -m py_compile apps/api/app/api/v1/endpoints/analytics.py` and `npx tsc --noEmit` pass.
 - R3.4: Forecast endpoint now returns cached forecasts immediately and schedules cache misses in background tasks using separate SQLAlchemy sessions. Single-sensor misses return `data_available: false` with an empty forecast payload instead of blocking or raising on insufficient data. The cache key includes `hours_ahead`. `python -m py_compile apps/api/app/routers/forecast.py` passes.
+- R3.5: `/intelligence/analyze` now prompts for and parses a JSON array without conflicting JSON-object response mode, accepts a `suggestions` wrapper defensively, and returns `{ available: false, reason: "AI service not configured" }` when Groq is missing. The frontend API client turns this into an explicit visible error. `python -m py_compile apps/api/app/routers/intelligence.py` and `npx tsc --noEmit` pass.
 
 ---
 

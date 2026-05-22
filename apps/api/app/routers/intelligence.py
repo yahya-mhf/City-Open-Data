@@ -283,10 +283,7 @@ async def analyze_endpoint(
         context["correlations"] = correlations
 
     if not _groq_client:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="GROQ_API_KEY not configured",
-        )
+        return {"available": False, "reason": "AI service not configured"}
 
     system_prompt = (
         "You are a city intelligence analyst. You receive real sensor data from a smart city "
@@ -320,7 +317,6 @@ async def analyze_endpoint(
                 {"role": "user", "content": user_prompt},
             ],
             max_tokens=4096,
-            response_format={"type": "json_object"},
         )
 
         input_tokens = response.usage.prompt_tokens if response.usage else 0
@@ -337,6 +333,8 @@ async def analyze_endpoint(
 
         content = response.choices[0].message.content
         suggestions = json.loads(content)
+        if isinstance(suggestions, dict) and isinstance(suggestions.get("suggestions"), list):
+            suggestions = suggestions["suggestions"]
         if not isinstance(suggestions, list):
             raise ValueError("Response is not a JSON array")
 

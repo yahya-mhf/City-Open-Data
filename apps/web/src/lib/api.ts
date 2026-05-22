@@ -11,6 +11,11 @@ export interface IntelligenceSuggestion {
   confidence: number;
 }
 
+interface IntelligenceUnavailable {
+  available: false;
+  reason: string;
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws";
 
@@ -164,11 +169,16 @@ export const api = {
       ),
   },
   intelligence: {
-    analyze: (data: { metric_keys: string[]; bbox: { north: number; south: number; east: number; west: number }; analysis_type: string }) =>
-      fetchApi<IntelligenceSuggestion[]>("/intelligence/analyze", {
+    analyze: async (data: { metric_keys: string[]; bbox: { north: number; south: number; east: number; west: number }; analysis_type: string }) => {
+      const result = await fetchApi<IntelligenceSuggestion[] | IntelligenceUnavailable>("/intelligence/analyze", {
         method: "POST",
         body: JSON.stringify(data),
-      }),
+      });
+      if (!Array.isArray(result)) {
+        throw new Error(result.reason);
+      }
+      return result;
+    },
     briefing: () =>
       fetchApi<{ paragraphs: string[]; generated_at: string }>("/intelligence/briefing"),
     suggestions: (analysisType: string, bbox: { north: number; south: number; east: number; west: number }) => {
