@@ -3,11 +3,11 @@ import io
 import json
 import time
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select, func as sa_func, text
+from sqlalchemy import select, func as sa_func, text, case
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from smart_city_database import models
@@ -20,7 +20,13 @@ router = APIRouter()
 
 RATE_LIMIT_WINDOW = 3600
 RATE_LIMIT_MAX = 10
+_DAILY_EXPORT_LIMITS: dict[str, int] = {
+    SubscriptionPlan.FREE: 1000,
+    SubscriptionPlan.PRO: 100000,
+    SubscriptionPlan.ENTERPRISE: 999999999,
+}
 _rate_limit_store: dict[str, list[float]] = defaultdict(list)
+_daily_export_store: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
 
 def _check_rate_limit(user_id: str) -> None:
@@ -36,6 +42,20 @@ def _check_rate_limit(user_id: str) -> None:
     timestamps.append(now)
 
 
+def _check_daily_limit(user_id: str, plan: str, row_count: int) -> None:
+    today = str(date.today())
+    day_records = _daily_export_store[user_id]
+    used = day_records.get(today, 0)
+    limit = _DAILY_EXPORT_LIMITS.get(plan, 1000)
+    if used + row_count > limit:
+        remaining = max(0, limit - used)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Daily export limit reached. Plan allows {limit} rows/day ({remaining} remaining).",
+        )
+    day_records[today] = used + row_count
+
+
 def _get_bucket_expr(granularity: str):
     mapping = {
         "1min": "1 minute",
@@ -48,27 +68,22 @@ def _get_bucket_expr(granularity: str):
     return sa_func.time_bucket(text(f"'{interval}'::interval"), models.SensorReading.time)
 
 
-@router.get("/sensors", response_class=Response)
-async def export_sensors(
+@router.get("/preview")
+async def export_preview(
     sensor_ids: str = Query(..., description="Comma-separated sensor IDs or 'all'"),
     metric_keys: str = Query(..., description="Comma-separated metric keys or 'all'"),
     start: datetime = Query(...),
     end: datetime = Query(...),
-    format: Literal["csv", "json", "parquet"] = Query("csv"),
+    district: str | None = Query(None),
     granularity: Literal["raw", "1min", "1hour", "1day"] = Query("1hour"),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(resolve_api_key_or_user),
 ):
-    _check_rate_limit(str(current_user["id"]))
-
-    is_paid = current_user["plan"] in (SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE)
-    if format == "parquet" and not is_paid:
-        raise HTTPException(status_code=403, detail="Parquet export requires Pro or Enterprise plan")
-    if granularity in ("raw", "1min") and not is_paid:
-        raise HTTPException(status_code=403, detail=f"{granularity} granularity requires Pro or Enterprise plan")
-
     if sensor_ids == "all":
-        result = await db.execute(select(models.Sensor.id))
+        q = select(models.Sensor.id)
+        if district:
+            q = q.where(models.Sensor.type == district)
+        result = await db.execute(q)
         id_list = [row[0] for row in result.all()]
     else:
         id_list = [sid.strip() for sid in sensor_ids.split(",")]
@@ -80,6 +95,92 @@ async def export_sensors(
         key_list = [k.strip() for k in metric_keys.split(",")]
 
     metric_subq = select(models.MetricDefinition.id, models.MetricDefinition.key).subquery()
+
+    count_query = select(sa_func.count()).select_from(
+        select(models.SensorReading.time).where(
+            models.SensorReading.sensor_id.in_(id_list),
+            models.SensorReading.metric_id == metric_subq.c.id,
+            metric_subq.c.key.in_(key_list),
+            models.SensorReading.time >= start,
+            models.SensorReading.time <= end,
+        ).limit(50000).subquery()
+    )
+
+    if granularity != "raw":
+        bucket_expr = _get_bucket_expr(granularity)
+        count_query = select(sa_func.count()).select_from(
+            select(bucket_expr).where(
+                models.SensorReading.sensor_id.in_(id_list),
+                models.SensorReading.metric_id == metric_subq.c.id,
+                metric_subq.c.key.in_(key_list),
+                models.SensorReading.time >= start,
+                models.SensorReading.time <= end,
+            ).group_by(
+                bucket_expr,
+                models.SensorReading.sensor_id,
+                metric_subq.c.key,
+            ).subquery()
+        )
+
+    total = await db.scalar(count_query)
+    user_plan = current_user.get("plan", SubscriptionPlan.FREE)
+    daily_limit = _DAILY_EXPORT_LIMITS.get(user_plan, 1000)
+    today_str = str(date.today())
+    used = _daily_export_store.get(str(current_user["id"]), {}).get(today_str, 0)
+
+    return {
+        "row_count": total or 0,
+        "daily_limit": daily_limit,
+        "daily_used": used,
+        "daily_remaining": max(0, daily_limit - used),
+    }
+
+
+@router.get("/sensors", response_class=Response)
+async def export_sensors(
+    sensor_ids: str = Query(..., description="Comma-separated sensor IDs or 'all'"),
+    metric_keys: str = Query(..., description="Comma-separated metric keys or 'all'"),
+    start: datetime = Query(...),
+    end: datetime = Query(...),
+    format_: str = Query("csv", alias="format", description="csv, json, parquet, geojson"),
+    granularity: Literal["raw", "1min", "1hour", "1day"] = Query("1hour"),
+    district: str | None = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(resolve_api_key_or_user),
+):
+    _check_rate_limit(str(current_user["id"]))
+
+    is_paid = current_user["plan"] in (SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE)
+    if format_ == "parquet" and not is_paid:
+        raise HTTPException(status_code=403, detail="Parquet export requires Pro or Enterprise plan")
+    if granularity in ("raw", "1min") and not is_paid:
+        raise HTTPException(status_code=403, detail=f"{granularity} granularity requires Pro or Enterprise plan")
+
+    if sensor_ids == "all":
+        q = select(models.Sensor.id)
+        if district:
+            q = q.where(models.Sensor.type == district)
+        result = await db.execute(q)
+        id_list = [row[0] for row in result.all()]
+    else:
+        id_list = [sid.strip() for sid in sensor_ids.split(",")]
+
+    if metric_keys == "all":
+        result = await db.execute(select(models.MetricDefinition.key))
+        key_list = [row[0] for row in result.all()]
+    else:
+        key_list = [k.strip() for k in metric_keys.split(",")]
+
+    metric_subq = select(models.MetricDefinition.id, models.MetricDefinition.key).subquery()
+
+    sensor_info: dict[str, dict[str, Any]] = {}
+    if format_ == "geojson":
+        sensors_result = await db.execute(
+            select(models.Sensor.id, models.Sensor.name, models.Sensor.latitude, models.Sensor.longitude)
+            .where(models.Sensor.id.in_(id_list))
+        )
+        for row in sensors_result.all():
+            sensor_info[row.id] = {"name": row.name, "lat": row.latitude, "lon": row.longitude}
 
     if granularity == "raw":
         query = select(
@@ -114,15 +215,19 @@ async def export_sensors(
             for row in rows
         ]
 
-        if len(raw_data) >= 100000:
+        if len(raw_data) >= 100000 and format_ != "geojson":
             return Response(
                 content="Export exceeds 100,000 rows. Narrow your date range or use aggregated granularity.",
                 status_code=413,
                 media_type="text/plain",
             )
 
-        if format == "csv":
+        _check_daily_limit(str(current_user["id"]), current_user.get("plan", SubscriptionPlan.FREE), len(raw_data))
+
+        if format_ == "csv":
             return _csv_response(raw_data, start, end)
+        elif format_ == "geojson":
+            return _geojson_response(raw_data, sensor_info, start, end)
         return _json_response(raw_data, start, end)
     else:
         bucket_expr = _get_bucket_expr(granularity)
@@ -162,10 +267,14 @@ async def export_sensors(
             for row in rows
         ]
 
-        if format == "csv":
+        _check_daily_limit(str(current_user["id"]), current_user.get("plan", SubscriptionPlan.FREE), len(agg_data))
+
+        if format_ == "csv":
             return _csv_response(agg_data, start, end)
-        elif format == "parquet":
+        elif format_ == "parquet":
             return _parquet_response(agg_data, start, end)
+        elif format_ == "geojson":
+            return _geojson_response(agg_data, sensor_info, start, end)
         return _json_response(agg_data, start, end)
 
 
@@ -198,6 +307,46 @@ def _json_response(data: list[dict[str, Any]], start: datetime, end: datetime) -
         media_type="application/json",
         headers={
             "Content-Disposition": f'attachment; filename="smartcity_export_{timestamp}.json"',
+            "X-Row-Count": str(len(data)),
+        },
+    )
+
+
+def _geojson_response(
+    data: list[dict[str, Any]],
+    sensor_info: dict[str, dict[str, Any]],
+    start: datetime,
+    end: datetime,
+) -> Response:
+    features = []
+    seen = set()
+    for row in data:
+        sid = row.get("sensor_id", "")
+        if sid not in seen and sid in sensor_info:
+            seen.add(sid)
+            info = sensor_info[sid]
+            props = {k: v for k, v in row.items() if k not in ("sensor_id",)}
+            props["name"] = info.get("name", sid)
+            features.append({
+                "type": "Feature",
+                "geometry": {
+                    "type": "Point",
+                    "coordinates": [info["lon"], info["lat"]],
+                },
+                "properties": props,
+            })
+    geojson = {
+        "type": "FeatureCollection",
+        "features": features,
+    }
+
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    content = json.dumps(geojson, default=str, indent=2)
+    return Response(
+        content=content,
+        media_type="application/geo+json",
+        headers={
+            "Content-Disposition": f'attachment; filename="smartcity_export_{timestamp}.geojson"',
             "X-Row-Count": str(len(data)),
         },
     )

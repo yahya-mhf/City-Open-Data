@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { useTheme } from "@/lib/theme-context";
 
 type Granularity = "raw" | "1min" | "1hour" | "1day";
-type Format = "csv" | "json" | "parquet";
+type Format = "csv" | "json" | "parquet" | "geojson";
 
 interface ExportConfig {
   sensorIds: string[];
   metricKeys: string[];
+  district?: string;
   start: string;
   end: string;
   format: Format;
@@ -28,6 +30,13 @@ interface ExportHistoryItem {
 interface ExportPanelProps {
   token: string;
   userPlan?: string;
+}
+
+interface PreviewInfo {
+  row_count: number;
+  daily_limit: number;
+  daily_used: number;
+  daily_remaining: number;
 }
 
 const STORAGE_KEY = "sc_export_history";
@@ -52,6 +61,7 @@ const defaultStart = () => {
 };
 
 export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
+  const { nightMode } = useTheme();
   const [sensors, setSensors] = useState<Array<{ id: string; name: string }>>([]);
   const [metrics, setMetrics] = useState<Array<{ key: string; display_name: string; unit: string }>>([]);
   const [history, setHistory] = useState<ExportHistoryItem[]>([]);
@@ -66,8 +76,13 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
   });
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<PreviewInfo | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const isPaid = userPlan === "pro" || userPlan === "enterprise";
+
+  const inputCls = "w-full border rounded-lg px-3 py-2 text-sm bg-white dark:bg-night-primary border-gray-300 dark:border-night-border text-gray-900 dark:text-gray-100";
 
   useEffect(() => {
     setHistory(loadHistory());
@@ -78,6 +93,43 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
     api.sensors.list(token).then(setSensors).catch(() => {});
     api.metrics.list(true).then(setMetrics).catch(() => {});
   }, [token]);
+
+  const fetchPreview = useCallback(async () => {
+    if (config.sensorIds.length === 0 || config.metricKeys.length === 0) {
+      setPreview(null);
+      return;
+    }
+    setPreviewLoading(true);
+    const sid = config.sensorIds.length === sensors.length ? "all" : config.sensorIds.join(",");
+    const mk = config.metricKeys.length === metrics.length ? "all" : config.metricKeys.join(",");
+    const params = new URLSearchParams({
+      sensor_ids: sid,
+      metric_keys: mk,
+      start: new Date(config.start).toISOString(),
+      end: new Date(config.end).toISOString(),
+      granularity: config.granularity,
+    });
+    if (config.district) params.set("district", config.district);
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+    try {
+      const res = await fetch(`${baseUrl}/export/preview?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setPreview(await res.json());
+      }
+    } catch {
+      // ignore
+    } finally {
+      setPreviewLoading(false);
+    }
+  }, [config, sensors.length, metrics.length, token]);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(fetchPreview, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [config.sensorIds, config.metricKeys, config.start, config.end, config.granularity, config.district]);
 
   const handleExport = useCallback(async () => {
     setError(null);
@@ -94,6 +146,7 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
       format: config.format,
       granularity: config.granularity,
     });
+    if (config.district) params.set("district", config.district);
 
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -166,9 +219,9 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
     <div className="space-y-6">
       {/* Sensor selector */}
       <fieldset>
-        <legend className="text-sm font-medium text-gray-700 mb-2">Sensors</legend>
-        <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto border rounded-lg p-3">
-          <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+        <legend className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Sensors</legend>
+        <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto border border-gray-300 dark:border-night-border rounded-lg p-3 bg-white dark:bg-night-primary">
+          <label className="flex items-center gap-1.5 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
               checked={config.sensorIds.length === sensors.length}
@@ -177,7 +230,7 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
             Select All
           </label>
           {sensors.map((s) => (
-            <label key={s.id} className="flex items-center gap-1.5 text-sm cursor-pointer">
+            <label key={s.id} className="flex items-center gap-1.5 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"
                 checked={config.sensorIds.includes(s.id)}
@@ -199,9 +252,9 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
 
       {/* Metric selector */}
       <fieldset>
-        <legend className="text-sm font-medium text-gray-700 mb-2">Metrics</legend>
-        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto border rounded-lg p-3">
-          <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+        <legend className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Metrics</legend>
+        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto border border-gray-300 dark:border-night-border rounded-lg p-3 bg-white dark:bg-night-primary">
+          <label className="flex items-center gap-1.5 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
             <input
               type="checkbox"
               checked={config.metricKeys.length === metrics.length}
@@ -210,7 +263,7 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
             Select All
           </label>
           {metrics.map((m) => (
-            <label key={m.key} className="flex items-center gap-1.5 text-sm cursor-pointer">
+            <label key={m.key} className="flex items-center gap-1.5 text-sm cursor-pointer text-gray-700 dark:text-gray-300">
               <input
                 type="checkbox"
                 checked={config.metricKeys.includes(m.key)}
@@ -233,21 +286,21 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
       {/* Date range */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Start</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start</label>
           <input
             type="datetime-local"
             value={config.start}
             onChange={(e) => setConfig({ ...config, start: e.target.value })}
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            className={inputCls}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">End</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End</label>
           <input
             type="datetime-local"
             value={config.end}
             onChange={(e) => setConfig({ ...config, end: e.target.value })}
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            className={inputCls}
           />
         </div>
       </div>
@@ -255,14 +308,15 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
       {/* Format & Granularity */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Format</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Format</label>
           <select
             value={config.format}
             onChange={(e) => setConfig({ ...config, format: e.target.value as Format })}
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            className={inputCls}
           >
             <option value="csv">CSV</option>
             <option value="json">JSON</option>
+            <option value="geojson">GeoJSON</option>
             <option value="parquet" disabled={!isPaid}>
               Parquet {!isPaid && "(Pro+)"}
             </option>
@@ -270,11 +324,11 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
           {formatDisabled && <p className="text-xs text-amber-600 mt-1">Parquet requires Pro or Enterprise plan</p>}
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Granularity</label>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Granularity</label>
           <select
             value={config.granularity}
             onChange={(e) => setConfig({ ...config, granularity: e.target.value as Granularity })}
-            className="w-full border rounded-lg px-3 py-2 text-sm"
+            className={inputCls}
           >
             <option value="raw" disabled={!isPaid}>Raw {!isPaid && "(Pro+)"}</option>
             <option value="1min" disabled={!isPaid}>1 Minute {!isPaid && "(Pro+)"}</option>
@@ -283,6 +337,31 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
           </select>
           {granularityDisabled && <p className="text-xs text-amber-600 mt-1">Raw/1min requires Pro or Enterprise plan</p>}
         </div>
+      </div>
+
+      {/* Record count preview */}
+      <div className="bg-gray-50 dark:bg-night-border/30 rounded-lg px-4 py-3">
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-gray-600 dark:text-gray-400">Estimated records</span>
+          <span className="font-mono font-medium text-gray-900 dark:text-gray-100">
+            {previewLoading ? (
+              <span className="text-gray-400 animate-pulse">Counting...</span>
+            ) : preview ? (
+              preview.row_count.toLocaleString()
+            ) : (
+              <span className="text-gray-400">--</span>
+            )}
+          </span>
+        </div>
+        {preview && (
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <span>Daily usage</span>
+            <span className={preview.daily_remaining < 100 ? "text-amber-500 font-medium" : ""}>
+              {preview.daily_used.toLocaleString()} / {preview.daily_limit.toLocaleString()} rows
+              {preview.daily_remaining > 0 && ` (${preview.daily_remaining.toLocaleString()} remaining)`}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Export button */}
@@ -294,14 +373,14 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
         {exporting ? "Exporting..." : "Download Export"}
       </button>
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">{error}</div>}
+      {error && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg px-4 py-3 text-sm">{error}</div>}
 
       {/* Export history */}
       {history.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-700">Export History</h3>
-            <button onClick={clearHistory} className="text-xs text-gray-500 hover:text-red-600">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Export History</h3>
+            <button onClick={clearHistory} className="text-xs text-gray-500 hover:text-red-600 dark:hover:text-red-400">
               Clear
             </button>
           </div>
@@ -310,11 +389,13 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
               <div
                 key={item.id}
                 className={`flex items-center justify-between text-xs px-3 py-2 rounded ${
-                  item.status === "success" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
+                  item.status === "success"
+                    ? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400"
+                    : "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400"
                 }`}
               >
                 <span className="truncate flex-1">
-                  {item.status === "success" ? `✓ ${item.fileName}` : `✗ ${item.error || "Export failed"}`}
+                  {item.status === "success" ? `\u2713 ${item.fileName}` : `\u2717 ${item.error || "Export failed"}`}
                 </span>
                 <span className="ml-2 whitespace-nowrap">
                   {new Date(item.timestamp).toLocaleString()} — {item.rowCount} rows

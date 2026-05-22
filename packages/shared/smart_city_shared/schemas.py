@@ -270,6 +270,64 @@ class AggregateResponse(BaseModel):
     to_date: datetime
 
 
+class MetricStats(BaseModel):
+    metric_key: str
+    display_name: str
+    unit: str
+    current_value: float | None = None
+    avg_24h: float | None = None
+    monthly_avg: float | None = None
+    monthly_min: float | None = None
+    monthly_max: float | None = None
+    monthly_count: int = 0
+
+
+class SensorStatsResponse(BaseModel):
+    sensor_id: str
+    metrics: list[MetricStats]
+
+
+class CorrelationPair(BaseModel):
+    metric_a: str
+    metric_b: str
+    correlation: float
+
+
+class CorrelationMatrix(BaseModel):
+    metrics: list[str]
+    pairs: list[CorrelationPair]
+
+
+class CityHealthMetric(BaseModel):
+    name: str
+    score: float
+    previous_score: float
+    trend: str
+    status: str
+    sparkline: list[float | None]
+
+
+class CityHealthResponse(BaseModel):
+    aqi: CityHealthMetric
+    heat_stress: CityHealthMetric
+    livability: CityHealthMetric
+    updated_at: datetime
+
+
+class HeatmapCell(BaseModel):
+    hour: int
+    weekday: int
+    avg_value: float
+    metric_key: str
+
+
+class HistogramBucket(BaseModel):
+    range_min: float
+    range_max: float
+    count: int
+    metric_key: str
+
+
 class ExportRequest(BaseModel):
     sensor_ids: list[UUID] | Literal["all"]
     metric_keys: list[str] | Literal["all"]

@@ -9,7 +9,12 @@ import redis.asyncio as aioredis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from smart_city_database.models import MetricDefinition, Sensor, SensorReading
+from smart_city_database.models import (
+    AnomalyEvent,
+    MetricDefinition,
+    Sensor,
+    SensorReading,
+)
 from smart_city_database.session import Base
 from smart_city_observability import setup_logging
 from smart_city_observability.metrics import metrics
@@ -25,6 +30,7 @@ from smart_city_shared.constants import (
 )
 from smart_city_shared.schemas import HubPayload
 from smart_city_shared.utils import utc_now
+from .anomaly import detect_anomaly
 
 setup_logging()
 logger = logging.getLogger(__name__)
@@ -59,6 +65,7 @@ async def validate_and_store(session: AsyncSession, payload: HubPayload) -> dict
 
     sensor_cache: dict[str, Sensor] = {}
     stored_count = 0
+    anomaly_alerts: list[dict[str, Any]] = []
 
     for reading in payload.sensor_readings:
         sid = reading.sensor_id
@@ -100,6 +107,26 @@ async def validate_and_store(session: AsyncSession, payload: HubPayload) -> dict
                             "value": float(metric_value),
                             "timestamp": reading.timestamp.isoformat() if reading.timestamp else utc_now().isoformat(),
                         }))
+
+                anomaly = await detect_anomaly(sid, md.id, float(metric_value), session)
+                if anomaly:
+                    anom_record = AnomalyEvent(
+                        sensor_id=sid,
+                        metric_id=md.id,
+                        z_score=anomaly["z_score"],
+                        method=anomaly["method"],
+                    )
+                    session.add(anom_record)
+                    anomaly_alerts.append({
+                        "sensor_id": sid,
+                        "metric_key": metric_key,
+                        "z_score": anomaly["z_score"],
+                        "method": anomaly["method"],
+                        "severity": anomaly["severity"],
+                        "value": anomaly["value"],
+                        "mean": anomaly["mean"],
+                        "std": anomaly["std"],
+                    })
             elif isinstance(metric_value, str):
                 value_text = metric_value
                 latest_metrics[metric_key] = metric_value
@@ -122,7 +149,7 @@ async def validate_and_store(session: AsyncSession, payload: HubPayload) -> dict
         if latest_metrics:
             await update_redis_latest(sid, reading.timestamp or utc_now(), latest_metrics, reading.battery)
 
-    return {"stored": stored_count, "hub_id": payload.hub_id}
+    return {"stored": stored_count, "hub_id": payload.hub_id, "anomaly_alerts": anomaly_alerts}
 
 
 async def check_thresholds(
@@ -181,6 +208,22 @@ async def update_redis_latest(
     await redis_client.set(key, json.dumps(data, default=str))
 
 
+async def publish_anomaly_alerts(channel: aio_pika.RobustChannel, alerts: list[dict[str, Any]]) -> None:
+    if not alerts:
+        return
+    exchange = await channel.declare_exchange(
+        SENSOR_DATA_EXCHANGE, aio_pika.ExchangeType.TOPIC, durable=True
+    )
+    for alert in alerts:
+        msg = aio_pika.Message(
+            body=json.dumps(alert, default=str).encode(),
+            delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+        )
+        await exchange.publish(msg, routing_key=ROUTING_KEY_ALERT)
+
+_channel: aio_pika.RobustChannel | None = None
+
+
 async def process_message(message: aio_pika.IncomingMessage) -> None:
     async with message.process():
         try:
@@ -199,6 +242,8 @@ async def process_message(message: aio_pika.IncomingMessage) -> None:
                     queue=SENSOR_INGESTION_QUEUE, status="success"
                 ).inc()
                 logger.info("Processed %d readings from hub %s", result["stored"], result["hub_id"])
+                if result.get("anomaly_alerts"):
+                    await publish_anomaly_alerts(channel, result["anomaly_alerts"])
             except Exception:
                 await session.rollback()
                 logger.exception("Failed to process message")
@@ -209,17 +254,17 @@ async def process_message(message: aio_pika.IncomingMessage) -> None:
 
 
 async def main() -> None:
-    global redis_client
+    global redis_client, _channel
 
     redis_client = aioredis.from_url(settings.REDIS_URL, decode_responses=True)
 
     async with await aio_pika.connect_robust(settings.RABBITMQ_URL) as connection:
-        channel = await connection.channel()
-        await ensure_rabbitmq_setup(channel)
+        _channel = await connection.channel()
+        await ensure_rabbitmq_setup(_channel)
 
-        await channel.set_qos(prefetch_count=10)
+        await _channel.set_qos(prefetch_count=10)
 
-        queue = await channel.declare_queue(SENSOR_INGESTION_QUEUE, durable=True)
+        queue = await _channel.declare_queue(SENSOR_INGESTION_QUEUE, durable=True)
 
         logger.info("Worker started. Waiting for messages...")
 

@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func as sa_func
+from sqlalchemy import select, func as sa_func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from smart_city_database import models
@@ -9,6 +9,8 @@ from smart_city_shared.schemas import (
     SensorReadingHistory,
     ExportResponse,
     AggregateResponse,
+    CorrelationMatrix,
+    CorrelationPair,
 )
 
 from smart_city_shared.enums import SubscriptionPlan
@@ -195,3 +197,101 @@ async def aggregate_data(
         )
 
     return results
+
+
+@router.get("/correlations", response_model=CorrelationMatrix)
+async def get_correlations(
+    days: int = Query(30, ge=7, le=90),
+    db: AsyncSession = Depends(get_db),
+):
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(days=days)
+
+    metric_defs = await db.execute(
+        select(models.MetricDefinition).where(models.MetricDefinition.is_active == True)
+    )
+    all_metrics = metric_defs.scalars().all()
+    if len(all_metrics) < 2:
+        return CorrelationMatrix(metrics=[m.key for m in all_metrics], pairs=[])
+
+    metric_keys = [m.key for m in all_metrics]
+    metric_id_map = {m.id: m.key for m in all_metrics}
+    metric_ids = list(metric_id_map.keys())
+
+    bucket = sa_func.time_bucket(text("'1 hour'::interval"), models.SensorReading.time)
+    hourly = await db.execute(
+        select(
+            models.SensorReading.metric_id,
+            models.SensorReading.sensor_id,
+            bucket.label("bucket"),
+            sa_func.avg(models.SensorReading.value_numeric).label("avg_val"),
+        ).where(
+            models.SensorReading.time >= since,
+            models.SensorReading.metric_id.in_(metric_ids),
+            models.SensorReading.value_numeric.isnot(None),
+        ).group_by(
+            models.SensorReading.metric_id,
+            models.SensorReading.sensor_id,
+            bucket,
+        ).order_by(
+            models.SensorReading.metric_id,
+            models.SensorReading.sensor_id,
+            bucket,
+        )
+    )
+    rows = hourly.all()
+
+    raw: dict[str, dict[str, list[float]]] = {}
+    for row in rows:
+        key = metric_id_map.get(row.metric_id, "")
+        if not key:
+            continue
+        sid = row.sensor_id
+        val = float(row.avg_val)
+        raw.setdefault(key, {})
+        raw[key].setdefault(sid, [])
+        raw[key][sid].append(val)
+
+    metric_ts: dict[str, list[float]] = {}
+    for key, sensors in raw.items():
+        all_vals: list[float] = []
+        for vals in sensors.values():
+            all_vals.extend(vals)
+        if len(all_vals) > 0:
+            metric_ts[key] = all_vals
+
+    keys_with_data = [k for k in metric_keys if k in metric_ts]
+    if len(keys_with_data) < 2:
+        return CorrelationMatrix(metrics=metric_keys, pairs=[])
+
+    pairs: list[CorrelationPair] = []
+    for i in range(len(keys_with_data)):
+        for j in range(i + 1, len(keys_with_data)):
+            a, b = keys_with_data[i], keys_with_data[j]
+            series_a = metric_ts[a]
+            series_b = metric_ts[b]
+            min_len = min(len(series_a), len(series_b))
+            if min_len < 3:
+                continue
+            corr = _pearson(series_a[:min_len], series_b[:min_len])
+            pairs.append(CorrelationPair(metric_a=a, metric_b=b, correlation=round(corr, 4)))
+
+    pairs.sort(key=lambda p: abs(p.correlation), reverse=True)
+    return CorrelationMatrix(metrics=metric_keys, pairs=pairs)
+
+
+def _pearson(x: list[float], y: list[float]) -> float:
+    n = len(x)
+    if n < 3:
+        return 0.0
+    sum_x = sum(x)
+    sum_y = sum(y)
+    sum_xy = sum(a * b for a, b in zip(x, y))
+    sum_x2 = sum(a * a for a in x)
+    sum_y2 = sum(b * b for b in y)
+    num = n * sum_xy - sum_x * sum_y
+    den = ((n * sum_x2 - sum_x * sum_x) * (n * sum_y2 - sum_y * sum_y)) ** 0.5
+    if den == 0:
+        return 0.0
+    r = num / den
+    return max(-1.0, min(1.0, r))

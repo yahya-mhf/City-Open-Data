@@ -1,202 +1,216 @@
-# Urban Pulse — Autonomous Task System
+# Urban Pulse — Full Refactor Task System
 
-## READ BEFORE DOING ANYTHING
-1. Read `.ai/context.md` — understand the project, its audience, and Marrakech specifics
-2. Read `.ai/rules.md` — mandatory constraints and patterns
-3. Read `.ai/architecture.md` — system layout, data flows, failure modes
-4. Read `.ai/workflow.md` — how to execute tasks correctly
-5. Read `.ai/standards.md` — code style and component patterns
-6. Search the codebase for the most similar existing implementation before writing anything new
+## READ FIRST (in this order)
+1. `.ai/context.md`
+2. `.ai/rules.md`
+3. `.ai/architecture.md`
+4. `.ai/workflow.md`
+5. `.ai/standards.md`
+6. `.ai/refactor-context.md` — the full audit, read every section
 
 You are the lead engineer. Work autonomously and deeply.
-Do not stop at shallow implementations.
-Do not ask for confirmation on routine engineering decisions.
-A task is only done when it is production-ready, integrated, typed, and tested.
+Never stop for confirmation. Never skip a broken area.
+After each task: mark it ✅, run `git add -A && git commit -m "refactor: <what changed>"`, then continue.
+If blocked, note it under Session Notes and move to the next task.
 
-After completing each task:
-- Mark it ✅
-- Note anything unexpected or broken in the session notes below
-- Inspect the surrounding systems for regressions
-- Remove any dead code introduced during the work
-- Continue to the next task unless instructed otherwise
+Continue iterating until no obvious weaknesses remain.
 
 ---
 
 ## Progress
 
-**15 / 24 tasks complete**
+**1 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
 ---
 
-## 🔴 Phase 1 — Bug Fixes
+## 🏗️ Phase R1 — Foundation (do these first, everything depends on them)
 
-- ✅ **1.1** Replace `Marker()` with GeoJSON circle layers (pulse ring, dot, value label)
-- ✅ **1.2** Hover tooltip on sensor markers (name, value+unit, status badge, timestamp)
-- ✅ **1.3** Click sensor → flyTo animation → navigate to `/sensors/[id]`
-- ✅ **1.4** 44×44px invisible hit area layer for mobile touch targets
-- ✅ **1.5** MapLibre cluster mode (color by count: blue <10, amber 10–50, red 50+, click to expand)
+- ✅ **R1.1** Fix all broken API endpoint paths in the frontend
+  - Move all API key calls from `/api/v1/auth/api-keys` → `/api/v1/developer/keys`
+  - Fix developer key usage response shape: map `requests_today`, `requests_this_week`, `by_endpoint` to what the UI expects
+  - Fix live API tester to use full key, not key prefix
+  - Fix developer docs to point at `/public/v1/*` not `/api/v1/*`
+  - Fix analytics scatter plot: replace nonexistent `/api/v1/sensors/history` with `/api/v1/analytics/sensors/{sensor_id}/history`
+  - Fix reports list status filter: backend param is `status_filter`, frontend sends `status`
+  - Fix forecast cache key to include `hours_ahead`
 
----
+- ❌ **R1.2** Create one global app shell
+  - Single persistent layout in `apps/web/src/app/layout.tsx` with: top navbar, role-aware nav links, night mode toggle, demo badge
+  - Remove per-page nav/header rebuilds — every page currently builds its own
+  - Role-aware nav: citizen sees Map/Reports/Account; operator adds Alerts/Admin; admin adds full Admin
+  - Breadcrumbs on all inner pages
+  - All `AuthProvider` wrapping consolidated to root layout only — remove duplicate providers from individual pages
 
-## 🗄️ Phase 2 — Data Seeding
+- ❌ **R1.3** Create a unified error + loading system
+  - `<PageError message={} retry={} />` component used everywhere API calls fail
+  - `<PageLoader />` skeleton component for all loading states
+  - `<EmptyState message={} icon={} />` for genuinely empty data
+  - Replace every silently swallowed API failure with one of these three components
+  - Pages affected: dashboard, map, maps, sensors, reports, admin, developer, export, analytics
 
-- ✅ **2.1** `seed_historical.py` — 90 days synthetic data with diurnal patterns, seasonal variation, and anomaly events
-- ✅ **2.2** `.github/workflows/seed-live.yml` — hourly cron calling `/internal/seed-latest` with `INTERNAL_SECRET`
-- ✅ **2.3** New sensor types: UV index, traffic density, energy grid load, dust storm index — all 9 locations updated
+- ❌ **R1.4** Fix the map marker click conflict
+  - Decide: marker click opens `SensorDrawer`, NOT navigates to `/sensors/[id]`
+  - Navigation to full sensor page only via drawer's "View full details" button
+  - Remove the 600ms `flyTo → navigate` pattern from `MapView`
+  - Apply consistently to `MapView`, `ThematicMap`, `FutureCityMap`
 
----
-
-## 📊 Phase 3 — Charts & Analytics
-
-- ❌ **3.1** Sensor detail page charts
-  - 7-day time series with forecast overlay (dashed) and confidence band (shaded area)
-  - 24-hour heatmap grid (hour × weekday, average value per cell)
-  - Distribution histogram of readings this month
-  - Stats row: current / 24h avg / monthly record / status
-  - Loading skeletons on all charts while data fetches
-  - Full dark mode support
-
-- ❌ **3.2** Correlation heatmap at `/analytics/correlations`
-  - Pearson correlation between every sensor type pair (last 30 days)
-  - D3 N×N grid: blue (negative) → white (zero) → red (positive)
-  - Click cell → scatter plot modal (Recharts)
-  - FastAPI endpoint: `GET /api/v1/analytics/correlations`
-
-- ❌ **3.3** City health scorecard on landing page
-  - Air Quality Index (CO2 + dust + UV weighted average)
-  - Heat Stress Index (temperature + humidity combination)
-  - Urban Livability Score (all sensor types normalized 0–100)
-  - Each card: score, trend arrow vs yesterday, status color, 24h sparkline
-  - FastAPI endpoint: `GET /api/v1/city-health` — cached in Redis 5 min TTL
-
-- ❌ **3.4** Data export page at `/export`
-  - Filters: sensor type, district, date range
-  - Record count preview (debounced 300ms) before download
-  - Export buttons: CSV, JSON, GeoJSON
-  - FastAPI streaming endpoints: `GET /api/v1/export/{format}`
-  - Rate limits using existing API key tier system (free: 1k rows/day, researcher: 100k, enterprise: unlimited)
-  - Download history table for the current user
+- ❌ **R1.5** Fix MapLibre theme/style change bug
+  - `setStyle()` destroys all custom sources and layers — broken in `ThematicMap`, `MapView`, `FutureCityMap`
+  - Fix: after `map.once('styledata', ...)` re-add all sources, layers, markers, and legends
+  - Or preferred: swap basemap tiles only without calling `setStyle` (swap `raster-tiles` source URL instead)
+  - Apply everywhere `setStyle` is called on theme change
 
 ---
 
-## 🤖 Phase 4 — AI & Forecasting
+## 🎨 Phase R2 — UI/UX Overhaul
 
-- ❌ **4.1** Daily AI morning briefing
-  - Cron job at 06:00 Marrakech time calls Groq (Llama 3)
-  - Prompt includes last 24h sensor summaries + anomaly events
-  - Output: 3 paragraphs (overnight recap, today's risks, one action recommendation)
-  - Cached in Redis, 6-hour TTL
-  - Frontend: typewriter streaming effect, generation timestamp shown
-  - Displayed on landing page below the hero
+- ❌ **R2.1** Design system unification
+  - Create `components/ui/` with: `Button`, `Badge`, `Card`, `Input`, `Select`, `Tabs`, `Modal`, `Drawer`, `Tooltip`, `Skeleton`
+  - Every component supports dark mode via `dark:night-*` tokens
+  - Replace all ad-hoc styled elements across every page with these components
+  - No more inline styles, no more per-page button/card/badge variants
 
-- ❌ **4.2** Multi-sensor Prophet forecasting
-  - Identify top 3 correlated sensor types per target metric (from correlation matrix)
-  - Pass them as additional regressors to Prophet
-  - Add time-of-day and day-of-week as regressors
-  - Forecast response includes: regressor names used, importance weights
-  - Map forecast overlay shows "multi-sensor" or "single-sensor" label
+- ❌ **R2.2** Redesign the home/landing page
+  - Remove marketing hero feel — this is an operations product
+  - New layout: full-screen live map background, floating glass card top-left with city KPIs (sensor count, active alerts, AQI), daily briefing bottom-left, quick-access buttons top-right
+  - HeroMap must show real sensor locations from `/api/v1/map/markers`
+  - Data freshness timestamp on every stat
+  - Clear CTA for operators: "Open Operations View" → `/map`
 
-- ❌ **4.3** Real-time anomaly detection worker
-  - Rolling Z-score over last 24 hours per sensor reading
-  - Flag WARNING if |Z| > 2, CRITICAL if |Z| > 3
-  - IQR outlier detection as second pass
-  - If both methods agree → fire alert via existing RabbitMQ alerts queue
-  - Store in `anomaly_events` TimescaleDB table
-  - Endpoint: `GET /api/v1/anomalies?since=&sensor_type=`
+- ❌ **R2.3** Redesign the main `/map` page
+  - This is the operational center — treat it like a control room
+  - Left sidebar: sensor list with status indicators, search/filter by type/status/metric
+  - Map center: live MapLibre with GeoJSON layers, cluster mode, pulse animations
+  - Right: `SensorDrawer` slides in on marker click (no page navigation conflict — see R1.4)
+  - Top bar: layer selector pills, freshness indicator, alert count badge
+  - Fix: sensor report form must use real sensor coordinates, not `0,0`
 
-- ❌ **4.4** What-if scenario simulator at `/simulate`
-  - City map with current IDW surface
-  - Sidebar sliders: tourist volume in Medina, Avenue Mohammed VI traffic, temperature deviation, Jemaa el-Fna event toggle
-  - "Run Simulation" → FastAPI → Groq prompt with current data + scenario → parsed JSON impact per sensor type
-  - IDW surface re-rendered with simulated values in distinct overlay color
+- ❌ **R2.4** Redesign sensor detail page `/sensors/[id]`
+  - Header: sensor name, type badge, status badge, coordinates, last seen timestamp
+  - Mini map showing sensor location with surrounding sensors
+  - Live metric cards: current value, unit, trend arrow, vs 24h average
+  - Charts: 7-day history + forecast overlay, 24h heatmap, distribution histogram — all with real error and empty states
+  - Alerts section: recent alerts for this sensor
+  - Report section: form with sensor coordinates pre-filled (fix the `0,0` bug)
+  - Remove `ScenarioSimulator` — it is not a real simulation, misleading to users
 
----
+- ❌ **R2.5** Redesign admin page `/admin`
+  - Gate by `role === "admin"` only — remove operator access (operators get 403 from backend anyway)
+  - Proper management console: sidebar tabs for Sensors / Users / Alerts / Reports / Hubs
+  - Each tab: data table with search, pagination, status filters
+  - Sensors: create form with all required fields, edit inline, soft-delete with confirmation modal
+  - Users: list with role/plan badges, role change dropdown
+  - Reports: status workflow with filter
+  - Show explicit permission denied state when API returns 403
 
-## 🎨 Phase 5 — UI/UX
+- ❌ **R2.6** Redesign developer portal `/developer`
+  - Tabs: API Keys / Usage / Documentation / Live Tester
+  - API Keys: list with tier badge, created date, last used, copy full key (shown once on creation), revoke
+  - Usage: charts from correct endpoint `/api/v1/developer/keys/{id}/usage` with correct response shape
+  - Documentation: list every `/public/v1` route with method, params, example response — not internal `/api/v1` routes
+  - Live Tester: full key only, show real request and response
+  - Remove API key section from `/account` — consolidate everything here
 
-- ❌ **5.1** Split-screen map comparison mode
-  - "Compare" toggle button on all thematic map pages
-  - Two side-by-side MapLibre instances, cameras linked (sync-move)
-  - Left: current period. Right: date/time picker for comparison period
-  - Floating delta legend showing difference between periods
-
-- ❌ **5.2** Public report pages at `/report/[district]/[date]`
-  - No login required
-  - Key stats + time series per sensor type + anomaly log + AI summary paragraph
-  - Share button (copies URL), Download PDF button (browser print API)
-  - Cache-Control: public, max-age=3600
-
-- ❌ **5.3** Mobile-first map layout
-  - Bottom sheet (50% height, draggable) replaces sidebar on < 768px
-  - Bottom navigation bar: Map / Analytics / Alerts / Pulse AI / Profile
-  - Layer selector: horizontally scrollable pill row at top of map
-  - Pulse AI: full-screen overlay on mobile instead of side panel
-  - All touch targets ≥ 44×44px
-
----
-
-## 🚀 Phase 6 — Deployment & CI/CD
-
-- ❌ **6.1** Railway deployment
-  - `railway.toml` created
-  - `docker-compose.yml` Railway-compatible
-  - Services: api, web, timescaledb, redis, rabbitmq
-  - Env var groups configured: DATABASE_URL, REDIS_URL, RABBITMQ_URL, GROQ_API_KEY, INTERNAL_SECRET
-  - Railway deploy button added to README
-
-- ❌ **6.2** GitHub Actions CI/CD pipeline
-  - `test` job: pytest (backend) + jest (frontend) on every push
-  - `build` job: Docker images pushed to ghcr.io
-  - `deploy` job: Railway webhook (backend) + Vercel hook (frontend) on push to `main`
-  - `seed` job: scheduled hourly, calls `/internal/seed-latest`
-  - Status badges in README
-
-- ❌ **6.3** Environment variable audit
-  - All hardcoded values moved to env vars
-  - `.env.example` with all required vars and descriptions
-  - `.env.local.example` for Next.js frontend
-  - Pydantic Settings validation in `config.py` — fails fast on missing vars
-  - "Configuration" section added to README
+- ❌ **R2.7** Consolidate export into one page at `/export`
+  - Delete `/dashboard/export` — redirect to `/export`
+  - Fix district filter: add real `district` field to sensors or remove the filter
+  - Move in-memory rate limits to Redis
+  - Show plan-based limits clearly: free vs paid capabilities
+  - Store export records in DB, show history table
+  - Large exports: progress indicator, not silent wait
 
 ---
 
-## 🏆 Hackathon Pitch Polish
+## 🔌 Phase R3 — Backend Fixes
 
-- ✅ **P.1** Landing page hero redesign (fullscreen map, glassmorphism overlay, live sensor count + alert count)
+- ❌ **R3.1** Fix `/ready` health endpoint
+  - Currently always returns ready — make it check: DB connection, Redis ping, RabbitMQ connection
+  - Return `{ db: ok, redis: ok, rabbitmq: ok, overall: ok }`
+  - Used by Docker healthcheck and Railway
 
-- ❌ **P.2** Demo mode toggle
-  - Visible to all users in top navbar
-  - On activation: triggers seismic alert modal after 10s, CO2 spike in Medina on map, Pulse AI proactively warns about CO2
-  - Auto-resets after 60 seconds
-  - Purpose: reliable wow moment during live hackathon demo
+- ❌ **R3.2** Move city-health logic out of `main.py`
+  - Create `apps/api/app/services/city_health.py`
+  - Move AQI, heat stress, livability calculations there
+  - Return `null` scores with `data_available: false` when no data — not fake `50` scores
+  - Fix AQI sparkline to use normalized scores
+  - Redis cache with 5 min TTL
 
-- ❌ **P.3** README hackathon submission rewrite
-  - Hero banner (screenshot placeholder)
-  - One-paragraph elevator pitch
-  - Mermaid architecture diagram
-  - Feature list with screenshot placeholders
-  - Tech stack table
-  - Local setup in ≤ 5 commands
-  - Live demo link + API docs link
-  - Team section
+- ❌ **R3.3** Fix correlation calculation
+  - Current implementation aligns by list order, not by timestamp — mathematically wrong
+  - Fix: align by shared timestamps using SQL time-series join
+  - Skip metric pairs with fewer than 100 shared timestamps
+  - Require auth on this endpoint (currently unauthenticated and expensive)
+
+- ❌ **R3.4** Fix forecast endpoint
+  - Move Prophet computation out of request path → background task or scheduled pre-computation
+  - Fix cache key to include `hours_ahead`
+  - Fix concurrent SQLAlchemy async session usage in fan-out — use separate sessions per task
+  - Return `data_available: false` when insufficient historical data
+
+- ❌ **R3.5** Fix intelligence analyze endpoint
+  - `response_format=json_object` conflicts with parsing response as array — fix the prompt to explicitly request a JSON array, then parse correctly
+  - Return `{ available: false, reason: "AI service not configured" }` when Groq key missing
+  - Frontend must display this state explicitly
+
+- ❌ **R3.6** Fix sensor and report bugs
+  - `latest` returns empty for unknown sensor — fix to return 404
+  - `stats` returns all metric definitions including ones with no readings — filter to actual readings only
+  - Report create: when `sensor_id` provided, use sensor's real lat/lng instead of user-submitted coordinates
+  - Fix `status_filter` vs `status` query param mismatch between frontend and backend
 
 ---
 
-## Session notes
+## 📊 Phase R4 — Missing Pages
+
+- ❌ **R4.1** Create `/analytics` landing page
+  - Grid of analytics tools: Correlations, Anomalies, Export, City Health
+  - Each card: description, last updated, quick stats
+  - Fix broken back-link from `/analytics/correlations`
+
+- ❌ **R4.2** Create `/reports/my` page
+  - Calls `/api/v1/reports/me`
+  - Report list with status badges, timestamps, location, category
+  - Status timeline indicator
+  - Map showing report locations
+  - Link from dashboard "My Reports"
+
+- ❌ **R4.3** Create `/analytics/anomalies` page
+  - Table: sensor name, metric, value, z-score, detection method, timestamp
+  - Filter by sensor type, severity, date range
+  - Click row → sensor detail page
+  - Link to related alert if fired
+
+- ❌ **R4.4** Add data freshness indicators everywhere
+  - Every data component shows "Updated Xs ago" with color: green <30s, amber 30s–2min, red >2min
+  - Apply to: map markers, sensor drawer, sensor detail, city health cards, thematic map layers
+  - WebSocket-connected components update freshness in real time
+
+---
+
+## 🤖 Phase R5 — AI Feature Honesty
+
+- ❌ **R5.1** Make all AI features explicit about their state
+  - Every AI element shows one of: `🟢 Live · Xs ago`, `🟡 Cached · Xm ago`, `🔴 Unavailable · Groq not configured`
+  - Daily briefing: show generation timestamp, "Regenerate" button for operators
+  - Intelligence panel: show analysis type, cache age, explicit unavailable state
+  - Chatbot: show "AI unavailable" gracefully instead of 500
+  - Remove any fallback text presented as AI-generated when it is not
+
+---
+
+## Session Notes
 
 > Record discoveries, blockers, and unexpected findings here after each session.
 
-- Phases 1 and 2 complete. Markers now use GeoJSON layers with pulse animation.
-- Historical seeder generates 90 days of realistic data with diurnal patterns and anomaly events.
-- UV index, traffic density, energy grid load, and dust storm index added across all 9 required locations.
-- Landing page hero redesigned with fullscreen MapLibre background, glassmorphism card, live counts.
-
 ---
 
-## Continue iterating until
+## Loop instruction
 
-- No obvious weaknesses remain in the area you touched
-- Implementation is production-grade across backend, frontend, and data layers
-- Surrounding systems are coherent and no regressions introduced
+After completing all tasks:
+1. Re-read `.ai/refactor-context.md`
+2. Check `git log` for everything changed
+3. Look for remaining broken connections, swallowed errors, placeholder UI
+4. Fix what you find and commit
+5. Continue until the app matches the "what it should look like" section in `refactor-context.md`

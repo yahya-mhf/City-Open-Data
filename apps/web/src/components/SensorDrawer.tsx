@@ -183,9 +183,9 @@ export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
   };
 
   return createPortal(
-    <div className="fixed inset-0 z-[2000] flex justify-end">
+    <div className="fixed inset-0 z-[2000] flex items-end md:items-stretch md:justify-end">
       <div className="fixed inset-0 bg-black/30 z-[1999]" onClick={onClose} />
-      <div className="relative w-full max-w-2xl bg-white shadow-2xl overflow-y-auto z-[2000]">
+      <div className="relative w-full md:max-w-2xl max-h-[80vh] md:max-h-none bg-white shadow-2xl overflow-y-auto z-[2000] rounded-t-2xl md:rounded-none">
         <div className="sticky top-0 bg-white border-b z-10 px-6 py-4 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold">{sensor?.name ?? "Loading..."}</h2>

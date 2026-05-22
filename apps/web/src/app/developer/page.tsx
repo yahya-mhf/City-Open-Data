@@ -1,27 +1,27 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import {
-  LineChart, BarChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
+  LineChart, BarChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const PUBLIC_API_URL = API_URL.replace(/\/api\/v1\/?$/, "/public/v1");
 
 const TIERS: Record<string, { label: string; requestsPerMin: number; historyDays: number }> = {
-  free: { label: "Free", requestsPerMin: 10, historyDays: 1 },
-  basic: { label: "Basic", requestsPerMin: 60, historyDays: 7 },
-  pro: { label: "Pro", requestsPerMin: 300, historyDays: 30 },
-  enterprise: { label: "Enterprise", requestsPerMin: 3000, historyDays: 365 },
+  free: { label: "Free", requestsPerMin: 60, historyDays: 7 },
+  researcher: { label: "Researcher", requestsPerMin: 300, historyDays: 90 },
+  enterprise: { label: "Enterprise", requestsPerMin: 2000, historyDays: 365 },
 };
 
 interface ApiKey {
   id: string;
   name: string;
   key_prefix: string;
-  description: string;
+  description: string | null;
   tier: string;
   is_active: boolean;
   created_at: string;
@@ -29,12 +29,30 @@ interface ApiKey {
   total_requests: number;
 }
 
+interface GeneratedApiKey {
+  id: string;
+  name: string;
+  description: string | null;
+  key: string;
+  tier: string;
+  rate_limit: number;
+  created_at: string;
+}
+
 interface UsageStats {
   daily: Array<{ date: string; count: number }>;
   endpoints: Array<{ path: string; count: number }>;
   error_rate: number;
-  avg_response_time_ms: number;
+  avg_response_time_ms: number | null;
   current_minute_requests: number;
+}
+
+interface ApiKeyUsageResponse {
+  requests_today: number;
+  requests_this_week: number;
+  by_endpoint: Record<string, number>;
+  avg_response_time_ms: number | null;
+  error_rate: number;
 }
 
 interface DocEndpoint {
@@ -58,121 +76,77 @@ const DOCS_ENDPOINTS: DocEndpoint[] = [
       { name: "type", type: "string", required: false, description: "Filter by sensor type" },
     ],
     exampleRequest: `curl -H "x-api-key: scp_xxxxxxxxxxxx" \\
-  "${API_URL}/sensors?status=active"`,
+  "${PUBLIC_API_URL}/sensors"`,
     exampleResponse: JSON.stringify([
       { id: "uuid", name: "AQ-01", type: "air_quality", latitude: 31.6295, longitude: -7.9811, status: "active", installed_at: "2026-01-15T10:00:00Z" },
     ], null, 2),
   },
   {
     method: "GET",
-    path: "/sensors/{id}",
-    description: "Get detailed information about a specific sensor.",
+    path: "/sensors/{id}/readings",
+    description: "Get historical readings for a specific sensor.",
     headers: [{ name: "x-api-key", value: "scp_...", required: true }],
     params: [
       { name: "id", type: "string (path)", required: true, description: "Sensor UUID" },
+      { name: "metric", type: "string", required: false, description: "Filter by metric key" },
+      { name: "from", type: "string (ISO)", required: false, description: "Start time" },
+      { name: "to", type: "string (ISO)", required: false, description: "End time" },
+      { name: "interval", type: "string", required: false, description: "Aggregation interval such as 1h or 1d" },
     ],
     exampleRequest: `curl -H "x-api-key: scp_xxxxxxxxxxxx" \\
-  "${API_URL}/sensors/uuid-here"`,
-    exampleResponse: JSON.stringify({ id: "uuid", name: "AQ-01", type: "air_quality", latitude: 31.6295, longitude: -7.9811, status: "active", installed_at: "2026-01-15T10:00:00Z" }, null, 2),
-  },
-  {
-    method: "GET",
-    path: "/sensors/{id}/latest",
-    description: "Get the latest readings for a sensor.",
-    headers: [{ name: "x-api-key", value: "scp_...", required: true }],
-    params: [
-      { name: "id", type: "string (path)", required: true, description: "Sensor UUID" },
-    ],
-    exampleRequest: `curl -H "x-api-key: scp_xxxxxxxxxxxx" \\
-  "${API_URL}/sensors/uuid-here/latest"`,
-    exampleResponse: JSON.stringify({ sensor_id: "uuid", timestamp: "2026-05-21T12:00:00Z", metrics: { temperature: 24.5, humidity: 55 } }, null, 2),
-  },
-  {
-    method: "GET",
-    path: "/sensors/{id}/history",
-    description: "Get historical data for a sensor. Supports time range and metric filtering.",
-    headers: [{ name: "x-api-key", value: "scp_...", required: true }],
-    params: [
-      { name: "id", type: "string (path)", required: true, description: "Sensor UUID" },
-      { name: "metric_key", type: "string", required: false, description: "Filter by metric key (e.g. temperature)" },
-      { name: "hours", type: "integer", required: false, description: "Number of hours to look back (default: 24)" },
-      { name: "start", type: "string (ISO)", required: false, description: "Start time (overrides hours)" },
-      { name: "end", type: "string (ISO)", required: false, description: "End time" },
-    ],
-    exampleRequest: `curl -H "x-api-key: scp_xxxxxxxxxxxx" \\
-  "${API_URL}/sensors/uuid-here/history?metric_key=temperature&hours=48"`,
+  "${PUBLIC_API_URL}/sensors/uuid-here/readings?metric=temperature&interval=1h"`,
     exampleResponse: JSON.stringify([
-      { time: "2026-05-21T10:00:00Z", metric_key: "temperature", value_numeric: 24.5, quality_flag: "good" },
+      { time: "2026-05-21T10:00:00Z", metric_key: "temperature", avg_value: 24.5, min_value: 23.8, max_value: 25.1, sample_count: 6 },
     ], null, 2),
   },
   {
     method: "GET",
-    path: "/map/markers",
-    description: "Get all sensor markers for the map view. No authentication required.",
-    headers: [],
-    params: [],
-    exampleRequest: `curl "${API_URL}/map/markers"`,
-    exampleResponse: JSON.stringify([
-      { id: "uuid", name: "AQ-01", latitude: 31.6295, longitude: -7.9811, status: "active", latest: { temperature: 24.5 } },
-    ], null, 2),
-  },
-  {
-    method: "GET",
-    path: "/maps/metrics",
-    description: "List all available metric layers.",
+    path: "/metrics",
+    description: "List metric definitions available to this API key.",
     headers: [{ name: "x-api-key", value: "scp_...", required: true }],
     params: [],
     exampleRequest: `curl -H "x-api-key: scp_xxxxxxxxxxxx" \\
-  "${API_URL}/maps/metrics"`,
+  "${PUBLIC_API_URL}/metrics"`,
     exampleResponse: JSON.stringify([
-      { id: "uuid", key: "temperature", display_name: "Temperature", unit: "°C", category: "weather", min_value: -10, max_value: 50 },
+      { key: "temperature", display_name: "Temperature", unit: "C", category: "weather", min_value: -10, max_value: 50 },
     ], null, 2),
   },
   {
     method: "GET",
-    path: "/maps/layers/{metric_key}",
-    description: "Get the latest sensor values for a specific metric layer.",
+    path: "/layers/{metric_key}",
+    description: "Get the latest sensor values for a specific public metric layer.",
     headers: [{ name: "x-api-key", value: "scp_...", required: true }],
     params: [
       { name: "metric_key", type: "string (path)", required: true, description: "Metric key (e.g. temperature)" },
     ],
     exampleRequest: `curl -H "x-api-key: scp_xxxxxxxxxxxx" \\
-  "${API_URL}/maps/layers/temperature"`,
+  "${PUBLIC_API_URL}/layers/temperature"`,
     exampleResponse: JSON.stringify([
-      { sensor_id: "uuid", sensor_name: "AQ-01", lat: 31.6295, lon: -7.9811, value: 24.5, unit: "°C", quality_flag: "good", time: "2026-05-21T12:00:00Z" },
+      { sensor_id: "uuid", sensor_name: "AQ-01", lat: 31.6295, lon: -7.9811, value: 24.5, unit: "C", time: "2026-05-21T12:00:00Z" },
     ], null, 2),
   },
   {
     method: "GET",
-    path: "/alerts",
-    description: "List alerts. Requires authentication.",
+    path: "/intelligence/latest",
+    description: "Get the latest cached intelligence suggestions for an analysis type.",
     headers: [{ name: "x-api-key", value: "scp_...", required: true }],
     params: [
-      { name: "acknowledged", type: "boolean", required: false, description: "Filter by acknowledged status" },
-      { name: "sensor_id", type: "string", required: false, description: "Filter by sensor" },
+      { name: "analysis_type", type: "string", required: false, description: "opportunities, risks, infrastructure, or environment" },
     ],
     exampleRequest: `curl -H "x-api-key: scp_xxxxxxxxxxxx" \\
-  "${API_URL}/alerts?acknowledged=false"`,
+  "${PUBLIC_API_URL}/intelligence/latest?analysis_type=opportunities"`,
     exampleResponse: JSON.stringify([
-      { id: "uuid", sensor_id: "uuid", severity: "high", message: "Temperature exceeded threshold", acknowledged: false, created_at: "2026-05-21T11:00:00Z" },
+      { id: "insight-1", type: "risk", title: "Heat stress rising", severity: "medium", confidence: 0.82 },
     ], null, 2),
   },
   {
     method: "GET",
-    path: "/analytics/sensors/{id}/history",
-    description: "Get analytics-grade historical data for a sensor.",
-    headers: [{ name: "x-api-key", value: "scp_...", required: true }],
-    params: [
-      { name: "id", type: "string (path)", required: true, description: "Sensor UUID" },
-      { name: "metric_key", type: "string", required: false, description: "Filter by metric key" },
-      { name: "from", type: "string (ISO)", required: false, description: "Start time" },
-      { name: "to", type: "string (ISO)", required: false, description: "End time" },
-    ],
-    exampleRequest: `curl -H "x-api-key: scp_xxxxxxxxxxxx" \\
-  "${API_URL}/analytics/sensors/uuid-here/history?metric_key=temperature&from=2026-05-20T00:00:00Z&to=2026-05-21T00:00:00Z"`,
-    exampleResponse: JSON.stringify([
-      { time: "2026-05-20T12:00:00Z", metric_key: "temperature", value_numeric: 24.5, quality_flag: "good" },
-    ], null, 2),
+    path: "/status",
+    description: "Get public platform status.",
+    headers: [],
+    params: [],
+    exampleRequest: `curl "${PUBLIC_API_URL}/status"`,
+    exampleResponse: JSON.stringify({ status: "operational", sensor_count: 24, last_reading_time: "2026-05-21T12:00:00Z", version: "1.0.0" }, null, 2),
   },
 ];
 
@@ -206,13 +180,13 @@ function MyApiKeysTab({ token }: { token: string }) {
   const [newRestrictions, setNewRestrictions] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
-  const [createdKey, setCreatedKey] = useState<ApiKey & { full_key: string } | null>(null);
+  const [createdKey, setCreatedKey] = useState<GeneratedApiKey | null>(null);
   const [showRevoke, setShowRevoke] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const fetchKeys = () => {
     setLoading(true);
-    authFetch<ApiKey[]>("/auth/api-keys", token)
+    authFetch<ApiKey[]>("/developer/keys", token)
       .then(setKeys)
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -229,13 +203,13 @@ function MyApiKeysTab({ token }: { token: string }) {
       if (newRestrictions.trim()) {
         restrictions = newRestrictions.split(",").map((s) => s.trim()).filter(Boolean);
       }
-      const key = await authFetch<ApiKey & { full_key: string }>("/auth/api-keys", token, {
+      const key = await authFetch<GeneratedApiKey>("/developer/keys", token, {
         method: "POST",
         body: JSON.stringify({
           name: newName.trim(),
           description: newDesc.trim() || undefined,
           tier: newTier,
-          metric_restrictions: restrictions,
+          allowed_metrics: restrictions,
         }),
       });
       setCreatedKey(key);
@@ -253,7 +227,7 @@ function MyApiKeysTab({ token }: { token: string }) {
 
   const revokeKey = async (id: string) => {
     try {
-      await authFetch(`/auth/api-keys/${id}`, token, { method: "DELETE" });
+      await authFetch(`/developer/keys/${id}`, token, { method: "DELETE" });
       setKeys((prev) => prev.filter((k) => k.id !== id));
       setShowRevoke(null);
     } catch (e: unknown) {
@@ -284,12 +258,12 @@ function MyApiKeysTab({ token }: { token: string }) {
             This key will never be shown again. Copy it now.
           </p>
           <div className="bg-white border-2 border-amber-400 rounded-lg p-4 font-mono text-sm break-all select-all mb-4">
-            {createdKey.full_key}
+            {createdKey.key}
           </div>
           <div className="flex gap-3">
             <button
               onClick={() => {
-                navigator.clipboard?.writeText(createdKey.full_key);
+                navigator.clipboard?.writeText(createdKey.key);
                 setCopied(true);
                 setTimeout(() => setCopied(false), 3000);
               }}
@@ -467,14 +441,24 @@ function UsageAnalyticsTab({ token }: { token: string }) {
   const [loadingStats, setLoadingStats] = useState(false);
 
   useEffect(() => {
-    authFetch<ApiKey[]>("/auth/api-keys", token).then(setKeys).catch(() => {});
+    authFetch<ApiKey[]>("/developer/keys", token).then(setKeys).catch(() => {});
   }, [token]);
 
   useEffect(() => {
     if (!selectedKeyId) return;
     setLoadingStats(true);
-    authFetch<UsageStats>(`/auth/api-keys/${selectedKeyId}/usage`, token)
-      .then(setStats)
+    authFetch<ApiKeyUsageResponse>(`/developer/keys/${selectedKeyId}/usage`, token)
+      .then((data) => {
+        setStats({
+          daily: [
+            { date: new Date().toISOString(), count: data.requests_today },
+          ],
+          endpoints: Object.entries(data.by_endpoint).map(([path, count]) => ({ path, count })),
+          error_rate: data.error_rate * 100,
+          avg_response_time_ms: data.avg_response_time_ms,
+          current_minute_requests: data.requests_today,
+        });
+      })
       .catch(() => setStats(null))
       .finally(() => setLoadingStats(false));
   }, [selectedKeyId, token]);
@@ -604,7 +588,7 @@ function UsageAnalyticsTab({ token }: { token: string }) {
 
               <div className="bg-white rounded-xl shadow p-5">
                 <h3 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Average Response Time</h3>
-                <p className="text-3xl font-bold text-gray-900">{stats.avg_response_time_ms.toFixed(0)} <span className="text-lg font-normal text-gray-500">ms</span></p>
+                <p className="text-3xl font-bold text-gray-900">{stats.avg_response_time_ms?.toFixed(0) ?? "--"} <span className="text-lg font-normal text-gray-500">ms</span></p>
                 <p className="text-xs text-gray-400 mt-1">Average over the last 7 days</p>
               </div>
             </div>
@@ -618,7 +602,7 @@ function UsageAnalyticsTab({ token }: { token: string }) {
 function ApiDocsTab({ token }: { token: string }) {
   const [activeEndpoint, setActiveEndpoint] = useState<string>(DOCS_ENDPOINTS[0].path);
   const [testerEndpoint, setTesterEndpoint] = useState<string>(TESTABLE_ENDPOINTS[0]?.path || "");
-  const [testerKeyId, setTesterKeyId] = useState<string>("");
+  const [testerApiKey, setTesterApiKey] = useState<string>("");
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [testerParams, setTesterParams] = useState<Record<string, string>>({});
   const [testerResult, setTesterResult] = useState<string>("");
@@ -626,15 +610,14 @@ function ApiDocsTab({ token }: { token: string }) {
   const [testerError, setTesterError] = useState("");
 
   useEffect(() => {
-    authFetch<ApiKey[]>("/auth/api-keys", token).then(setKeys).catch(() => {});
+    authFetch<ApiKey[]>("/developer/keys", token).then(setKeys).catch(() => {});
   }, [token]);
 
   const selectedDoc = DOCS_ENDPOINTS.find((e) => e.path === activeEndpoint);
   const testerDoc = TESTABLE_ENDPOINTS.find((e) => e.path === testerEndpoint);
-  const selectedKey = keys.find((k) => k.id === testerKeyId);
 
   const runTester = async () => {
-    if (!testerDoc || !selectedKey) return;
+    if (!testerDoc || !testerApiKey.trim()) return;
     setTesterLoading(true);
     setTesterError("");
     setTesterResult("");
@@ -651,10 +634,10 @@ function ApiDocsTab({ token }: { token: string }) {
       }
     }
     const qs = queryParams.toString();
-    const url = `${API_URL}${path}${qs ? "?" + qs : ""}`;
+    const url = `${PUBLIC_API_URL}${path}${qs ? "?" + qs : ""}`;
 
     try {
-      const headers: Record<string, string> = { "x-api-key": selectedKey.key_prefix };
+      const headers: Record<string, string> = { "x-api-key": testerApiKey.trim() };
       const res = await fetch(url, { headers });
       const body = await res.text();
       let formatted = body;
@@ -797,17 +780,18 @@ function ApiDocsTab({ token }: { token: string }) {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">API Key</label>
-            <select
-              value={testerKeyId}
-              onChange={(e) => setTesterKeyId(e.target.value)}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Full API Key</label>
+            <input
+              value={testerApiKey}
+              onChange={(e) => setTesterApiKey(e.target.value)}
+              placeholder="scp_xxxxxxxxxxxx"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="">-- Select a key --</option>
-              {keys.filter((k) => k.is_active).map((k) => (
-                <option key={k.id} value={k.id}>{k.name} ({k.key_prefix}...)</option>
-              ))}
-            </select>
+            />
+            {keys.length > 0 && (
+              <p className="mt-1 text-xs text-gray-400">
+                Active keys: {keys.filter((k) => k.is_active).map((k) => `${k.name} (${k.key_prefix}...)`).join(", ")}
+              </p>
+            )}
           </div>
         </div>
 
@@ -831,7 +815,7 @@ function ApiDocsTab({ token }: { token: string }) {
 
         <button
           onClick={runTester}
-          disabled={testerLoading || !selectedKey || !testerDoc}
+          disabled={testerLoading || !testerApiKey.trim() || !testerDoc}
           className="px-6 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
         >
           {testerLoading ? "Sending..." : "Try It"}

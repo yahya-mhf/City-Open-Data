@@ -107,6 +107,7 @@ function MetricMapContent() {
   const [forecastData, setForecastData] = useState<Map<string, ForecastPoint[]>>(new Map());
   const [forecastValuesMap, setForecastValuesMap] = useState<Map<string, number | null>>(new Map());
   const [trendMap, setTrendMap] = useState<Map<string, "up" | "down" | "flat">>(new Map());
+  const [forecastTypeMap, setForecastTypeMap] = useState<Map<string, string>>(new Map());
   const [forecastLoading, setForecastLoading] = useState(false);
   const playRef = useRef<number | null>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -193,8 +194,10 @@ function MetricMapContent() {
       const vMap = new Map<string, number | null>();
       const tMap = new Map<string, "up" | "down" | "flat">();
 
+      const typeM = new Map<string, string>();
       data.forEach((entry) => {
         fMap.set(entry.sensor_id, entry.forecast);
+        typeM.set(entry.sensor_id, entry.type || "single-sensor");
         if (entry.forecast.length > 0) {
           const lastVal = entry.forecast[entry.forecast.length - 1].value;
           vMap.set(entry.sensor_id, lastVal);
@@ -210,6 +213,7 @@ function MetricMapContent() {
       setForecastData(fMap);
       setForecastValuesMap(vMap);
       setTrendMap(tMap);
+      setForecastTypeMap(typeM);
     } catch {
     } finally {
       setForecastLoading(false);
@@ -391,17 +395,17 @@ function MetricMapContent() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white shadow-sm border-b z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="max-w-7xl mx-auto px-4 py-3 md:py-4 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2 md:gap-4">
             <Link href="/maps" className="text-gray-500 hover:text-gray-700 text-sm">&larr; All Maps</Link>
-            <h1 className="text-2xl font-bold text-primary-700 capitalize">
+            <h1 className="text-lg md:text-2xl font-bold text-primary-700 capitalize">
               {metricInfo?.display_name ?? metricKey}
             </h1>
             {metricInfo && (
               <span className="text-sm text-gray-500 font-mono">{metricInfo.unit}</span>
             )}
           </div>
-          <nav className="flex gap-4">
+          <nav className="flex gap-2 md:gap-4 text-sm md:text-base">
             <button
               onClick={toggleNightMode}
               className="text-gray-600 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-400 text-lg transition"
@@ -409,15 +413,15 @@ function MetricMapContent() {
             >
               {nightMode ? "\u2600\uFE0F" : "\uD83C\uDF19"}
             </button>
-            <Link href="/maps/future" className="text-gray-600 hover:text-primary-600">Future City</Link>
-            <Link href="/dashboard" className="text-gray-600 hover:text-primary-600">Dashboard</Link>
-            <Link href="/developer" className="text-gray-600 hover:text-primary-600">Developer</Link>
+            <Link href="/maps/future" className="hidden md:inline text-gray-600 hover:text-primary-600">Future City</Link>
+            <Link href="/dashboard" className="hidden sm:inline text-gray-600 hover:text-primary-600">Dashboard</Link>
+            <Link href="/developer" className="hidden lg:inline text-gray-600 hover:text-primary-600">Developer</Link>
             <Link href="/map" className="text-gray-600 hover:text-primary-600">Sensor Map</Link>
           </nav>
         </div>
       </header>
 
-      <div className="bg-white border-b px-4 py-2 flex items-center gap-4">
+      <div className="bg-white border-b px-3 md:px-4 py-2 flex flex-wrap items-center gap-2 md:gap-4">
         <div className="flex bg-gray-100 rounded-lg p-0.5">
           <button
             onClick={() => handleToggleMode("live")}
@@ -552,7 +556,7 @@ function MetricMapContent() {
         {loading ? (
           <div className="flex items-center justify-center h-full text-gray-500">Loading map data...</div>
         ) : (
-          <div className="h-[calc(100vh-12rem)] rounded-xl overflow-hidden shadow-lg relative">
+          <div className="h-[50vh] md:h-[calc(100vh-12rem)] rounded-xl overflow-hidden shadow-lg relative">
               {metricInfo && (
                 <ThematicMap
                   metricKey={metricKey}
@@ -576,7 +580,7 @@ function MetricMapContent() {
             )}
 
             {chartSensorId && mode === "history" && chartData.length > 0 && (
-              <div className="absolute top-4 right-4 z-[2000] bg-white rounded-xl shadow-2xl border p-4 w-80">
+              <div className="absolute inset-x-2 md:inset-x-auto md:top-4 md:right-4 z-[2000] bg-white rounded-xl shadow-2xl border p-4 md:w-80">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-semibold capitalize">
                     {markers.find((m) => m.sensor_id === chartSensorId)?.sensor_name ?? chartSensorId}
@@ -601,11 +605,18 @@ function MetricMapContent() {
             )}
 
             {chartSensorId && mode === "forecast" && forecastChartData.length > 0 && (
-              <div className="absolute top-4 right-4 z-[2000] bg-white rounded-xl shadow-2xl border p-4 w-96">
+              <div className="absolute inset-x-2 md:inset-x-auto md:top-4 md:right-4 z-[2000] bg-white rounded-xl shadow-2xl border p-4 md:w-96">
                 <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-semibold capitalize">
-                    {markers.find((m) => m.sensor_id === chartSensorId)?.sensor_name ?? chartSensorId}
-                  </h4>
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-semibold capitalize">
+                      {markers.find((m) => m.sensor_id === chartSensorId)?.sensor_name ?? chartSensorId}
+                    </h4>
+                    {forecastTypeMap.get(chartSensorId) === "multi-sensor" && (
+                      <span className="text-[10px] bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400 px-1.5 py-0.5 rounded font-medium">
+                        Multi-regressor
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={() => setChartSensorId(null)}
                     className="text-gray-400 hover:text-gray-600 text-lg leading-none"

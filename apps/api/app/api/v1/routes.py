@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from .endpoints import auth, sensors, alerts, reports, admin, metrics_endpoints, map_endpoints
-from .endpoints import analytics, api_keys, export as export_endpoints
+from .endpoints import analytics, api_keys, anomalies, export as export_endpoints
 
 router = APIRouter()
 router.include_router(auth.router, prefix="/auth", tags=["Auth"])
@@ -13,4 +13,5 @@ router.include_router(metrics_endpoints.router, prefix="/metrics", tags=["Metric
 router.include_router(map_endpoints.router, prefix="/map", tags=["Map"])
 router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 router.include_router(api_keys.router, prefix="/developer", tags=["Developer"])
+router.include_router(anomalies.router, prefix="/anomalies", tags=["Anomalies"])
 router.include_router(export_endpoints.router, prefix="/export", tags=["Export"])

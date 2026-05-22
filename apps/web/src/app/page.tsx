@@ -5,6 +5,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
+import CityHealth from "@/components/CityHealth";
+import DailyBriefing from "@/components/DailyBriefing";
 
 const HeroMap = dynamic(() => import("@/components/HeroMap"), {
   ssr: false,
@@ -17,7 +19,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1
 
 function HomeContent() {
   const { user, loading, logout } = useAuth();
-  const { nightMode } = useTheme();
+  const { nightMode, toggleNightMode, demoMode, toggleDemoMode } = useTheme();
   const [sensorCount, setSensorCount] = useState<number | null>(null);
   const [alertCount, setAlertCount] = useState<number | null>(null);
   const featuresRef = useRef<HTMLElement>(null);
@@ -66,6 +68,10 @@ function HomeContent() {
                 <Link href="/register" className="text-sm px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700">Register</Link>
               </>
             )}
+            <button onClick={toggleDemoMode} className={`text-xs px-2 py-1 rounded-full transition ${demoMode ? 'bg-amber-500 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-300'}`}>
+              {demoMode ? "DEMO ON" : "Demo"}
+            </button>
+            <button onClick={toggleNightMode} className="text-gray-600 dark:text-gray-300 hover:text-primary-600 text-lg">{nightMode ? "\u2600\uFE0F" : "\uD83C\uDF19"}</button>
           </nav>
         </div>
       </header>
@@ -124,31 +130,11 @@ function HomeContent() {
           </div>
         </section>
 
+        {/* ───── CITY HEALTH DASHBOARD ───── */}
+        <CityHealth />
+
         {/* ───── DAILY AI BRIEFING ───── */}
-        <section className="relative z-10 -mt-16 mb-8 px-4">
-          <div className="max-w-4xl mx-auto backdrop-blur-xl bg-white/80 dark:bg-night-secondary/80 border border-gray-200/60 dark:border-night-border/60 rounded-2xl p-6 shadow-xl">
-            <div className="flex items-start gap-4">
-              <div className="text-3xl shrink-0">{"\uD83E\uDD16"}</div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100">Daily AI Briefing</h3>
-                  <span className="text-xs text-gray-400">Updated today at 06:00</span>
-                </div>
-                <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-                  <p>
-                    Overnight in Marrakech, temperatures remained mild around 22°C with no significant anomalies detected across the sensor network. CO2 levels in the Medina district showed the usual nighttime dip, now rising with morning traffic.
-                  </p>
-                  <p>
-                    Today&apos;s forecast indicates a high UV index (8+) between 12:00 and 15:00 — recommend activating public shade announcements. Dust storm risk is low. Energy grid load is projected to peak at 3,400 MW around 14:00 due to AC demand.
-                  </p>
-                  <p>
-                    <strong>Action:</strong> Deploy mobile air quality units to Jemaa el-Fna ahead of the midday pedestrian rush. Traffic calming on Avenue Mohammed VI between 08:00–09:00 could reduce congestion by an estimated 12%.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <DailyBriefing />
 
         {/* ───── FEATURES ───── */}
         <section ref={featuresRef} className="bg-white dark:bg-night-primary py-20 scroll-mt-8">

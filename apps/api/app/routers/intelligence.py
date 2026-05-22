@@ -371,6 +371,165 @@ async def analyze_endpoint(
         )
 
 
+BRIEFING_CACHE_KEY = "daily_briefing"
+BRIEFING_CACHE_TTL = 21600  # 6 hours
+
+
+@router.get("/briefing")
+async def get_daily_briefing(
+    db: AsyncSession = Depends(get_db),
+):
+    if redis_manager.client:
+        cached = await redis_manager.client.get(BRIEFING_CACHE_KEY)
+        if cached:
+            return json.loads(cached)
+
+    now = datetime.now(timezone.utc)
+    since = now - timedelta(hours=24)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    sensors = await db.execute(select(models.Sensor).where(models.Sensor.status == "active"))
+    all_sensors = sensors.scalars().all()
+    sensor_ids = [s.id for s in all_sensors]
+
+    metric_defs = await db.execute(
+        select(models.MetricDefinition).where(models.MetricDefinition.is_active == True)
+    )
+    all_metrics = metric_defs.scalars().all()
+    metric_id_map = {str(m.id): m.key for m in all_metrics}
+
+    if not sensor_ids or not metric_id_map:
+        fallback = {
+            "paragraphs": [
+                "Overnight sensor data was unavailable for analysis.",
+                "No risk assessment could be generated at this time.",
+                "Action: Verify sensor network connectivity and try again later.",
+            ],
+            "generated_at": now.isoformat(),
+            "cached": False,
+        }
+        return fallback
+
+    hour_bucket = sa_func.time_bucket(text("'1 hour'::interval"), models.SensorReading.time)
+    hourly = await db.execute(
+        select(
+            models.SensorReading.metric_id,
+            hour_bucket.label("bucket"),
+            sa_func.avg(models.SensorReading.value_numeric).label("avg_val"),
+        ).where(
+            models.SensorReading.sensor_id.in_(sensor_ids),
+            models.SensorReading.time >= since,
+            models.SensorReading.value_numeric.isnot(None),
+        ).group_by(
+            models.SensorReading.metric_id,
+            hour_bucket,
+        ).order_by(
+            models.SensorReading.metric_id,
+            hour_bucket,
+        )
+    )
+    hourly_rows = hourly.all()
+
+    metric_summaries: dict[str, dict[str, Any]] = {}
+    for row in hourly_rows:
+        key = metric_id_map.get(str(row.metric_id))
+        if not key:
+            continue
+        if key not in metric_summaries:
+            metric_summaries[key] = {"values": [], "min": float("inf"), "max": float("-inf")}
+        v = float(row.avg_val)
+        metric_summaries[key]["values"].append(v)
+        metric_summaries[key]["min"] = min(metric_summaries[key]["min"], v)
+        metric_summaries[key]["max"] = max(metric_summaries[key]["max"], v)
+
+    for k, v in metric_summaries.items():
+        vals = v["values"]
+        v["avg"] = sum(vals) / len(vals) if vals else 0
+        v["current"] = vals[-1] if vals else 0
+
+    anomaly_events = await db.execute(
+        select(models.Alert).where(
+            models.Alert.created_at >= since,
+            models.Alert.severity.in_(["warning", "critical"]),
+        ).order_by(models.Alert.created_at.desc()).limit(10)
+    )
+    anomaly_rows = anomaly_events.scalars().all()
+
+    anomaly_text = ""
+    if anomaly_rows:
+        events = []
+        for a in anomaly_rows:
+            events.append(f"sensor={a.sensor_id} severity={a.severity} message={a.message} time={a.created_at.isoformat()}")
+        anomaly_text = "\nRecent alerts:\n" + "\n".join(events)
+
+    district_summaries: dict[str, list[str]] = {}
+    for s in all_sensors:
+        district = s.type if hasattr(s, "type") else "unknown"
+        district_summaries.setdefault(district, [])
+
+    if not _groq_client:
+        paragraphs = [
+            f"Overnight in Marrakech, {len(all_sensors)} active sensors reported across {len(metric_summaries)} metrics. "
+            + "; ".join(f"{k}: avg {v['avg']:.1f}, range [{v['min']:.1f}-{v['max']:.1f}]" for k, v in list(metric_summaries.items())[:5]),
+            "No AI risk assessment available (GROQ_API_KEY not configured). Monitor the live dashboard for current conditions.",
+            "Action: Set GROQ_API_KEY environment variable to enable AI-powered briefings.",
+        ]
+    else:
+        summary_lines = []
+        for k, v in metric_summaries.items():
+            summary_lines.append(f"- {k}: current {v['current']:.1f}, 24h avg {v['avg']:.1f}, range [{v['min']:.1f}-{v['max']:.1f}]")
+        summary_text = "\n".join(summary_lines)
+
+        prompt = (
+            "You are a city intelligence analyst for Marrakech, Morocco. "
+            "Write a concise daily morning briefing in exactly 3 paragraphs based on the last 24 hours of sensor data.\n\n"
+            f"City context: Marrakech is a hot semi-arid city. Current time: {now.isoformat()}. "
+            f"Active sensors: {len(all_sensors)}. "
+            f"Metrics tracked: {', '.join(sorted(metric_summaries.keys()))}.\n\n"
+            f"24-hour metric summaries:\n{summary_text}\n"
+            f"{anomaly_text}\n\n"
+            "Paragraph 1: Overnight recap — summarize the most notable readings, trends, and any anomalies.\n"
+            "Paragraph 2: Today's risks — forecast today's likely conditions, highlight any concerning metrics, and explain why.\n"
+            "Paragraph 3: One actionable recommendation — what the city operator should do today, referencing specific locations or districts.\n\n"
+            "Return ONLY a JSON object with a single key 'paragraphs' containing an array of exactly 3 strings. "
+            "Do not wrap in markdown. Example: {\"paragraphs\": [\"...\", \"...\", \"...\"]}"
+        )
+
+        try:
+            response = await _groq_client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[
+                    {"role": "system", "content": "You are a city intelligence analyst. Return only valid JSON."},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=2048,
+                temperature=0.7,
+                response_format={"type": "json_object"},
+            )
+            content = response.choices[0].message.content
+            parsed = json.loads(content)
+            paragraphs = parsed.get("paragraphs", [])
+            if not isinstance(paragraphs, list) or len(paragraphs) != 3:
+                raise ValueError("Expected exactly 3 paragraphs")
+        except Exception as e:
+            logger.error("Briefing generation failed", extra={"error": str(e)})
+            paragraphs = [
+                f"Overnight in Marrakech, {len(all_sensors)} active sensors reported across {len(metric_summaries)} metrics.",
+                "AI briefing generation encountered an error. Check the intelligence service status.",
+                "Action: Monitor the live dashboard and check GROQ_API_KEY configuration.",
+            ]
+
+    result = {
+        "paragraphs": paragraphs,
+        "generated_at": now.isoformat(),
+    }
+
+    if redis_manager.client:
+        await redis_manager.client.set(BRIEFING_CACHE_KEY, json.dumps(result, default=str), ex=BRIEFING_CACHE_TTL)
+
+    return result
+
+
 @router.get("/suggestions")
 async def get_suggestions(
     analysis_type: str = Query(...),

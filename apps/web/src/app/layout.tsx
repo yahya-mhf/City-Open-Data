@@ -3,6 +3,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-context";
 import SeismicAlertWrapper from "@/components/SeismicAlertWrapper";
 import ChatWrapper from "@/components/chatbot/ChatWrapper";
+import DemoBadge from "@/components/DemoBadge";
 
 export const metadata: Metadata = {
   title: "Urban Pulse",
@@ -16,6 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider>
           {children}
           <SeismicAlertWrapper />
+          <DemoBadge />
           <ChatWrapper />
         </ThemeProvider>
       </body>

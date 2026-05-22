@@ -66,6 +66,18 @@ async def get_my_reports(
     return result.scalars().all()
 
 
+@router.get("/public", response_model=list[ReportRead])
+async def list_public_reports(
+    category: str | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    query = select(models.CitizenReport).order_by(models.CitizenReport.created_at.desc())
+    if category:
+        query = query.where(models.CitizenReport.category == category)
+    result = await db.execute(query)
+    return result.scalars().all()
+
+
 @router.get("", response_model=list[ReportRead])
 async def list_all_reports(
     status_filter: str | None = None,

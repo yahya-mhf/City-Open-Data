@@ -86,6 +86,29 @@ export const api = {
       fetchApi<Array<{ time: string; metric_key: string; value_numeric?: number; value_text?: string; quality_flag?: string }>>(
         `/sensors/${id}/history?metric_key=${metricKey}&start=${start}&end=${end}`
       ),
+    stats: (id: string) =>
+      fetchApi<{ sensor_id: string; metrics: Array<{ metric_key: string; display_name: string; unit: string; current_value?: number; avg_24h?: number; monthly_avg?: number; monthly_min?: number; monthly_max?: number; monthly_count: number }> }>(
+        `/sensors/${id}/stats`
+      ),
+    heatmap: (id: string) =>
+      fetchApi<Array<{ hour: number; weekday: number; avg_value: number; metric_key: string }>>(
+        `/sensors/${id}/heatmap`
+      ),
+    distribution: (id: string, metricKey: string, buckets = 15) =>
+      fetchApi<Array<{ range_min: number; range_max: number; count: number; metric_key: string }>>(
+        `/sensors/${id}/distribution?metric_key=${metricKey}&buckets=${buckets}`
+      ),
+    simulate: (id: string, adjustments: Record<string, number>) =>
+      fetchApi<{
+        sensor_id: string;
+        sensor_name: string;
+        current: Record<string, number>;
+        hypothetical: Record<string, number>;
+        impact: Record<string, { current: number; hypothetical: number; diff: number; percent_change: number; direction: string }>;
+      }>(`/sensors/${id}/simulate`, {
+        method: "POST",
+        body: JSON.stringify({ adjustments }),
+      }),
   },
   alerts: {
     list: (token: string, acknowledged?: boolean) =>
@@ -108,11 +131,15 @@ export const api = {
       fetchApi<Array<{ id: string; category: string; description: string; status: string; created_at: string; latitude: number; longitude: number; image_url: string | null }>>("/reports/me", { token }),
     list: (token: string, status?: string) =>
       fetchApi<Array<{ id: string; user_id: string; category: string; description: string; status: string; created_at: string; image_url: string | null }>>(
-        `/reports${status ? `?status=${status}` : ""}`,
+        `/reports${status ? `?status_filter=${status}` : ""}`,
         { token }
       ),
     updateStatus: (id: string, status: string, token: string) =>
       fetchApi(`/reports/${id}`, { method: "PATCH", body: JSON.stringify({ status }), token }),
+    public: (category?: string) =>
+      fetchApi<Array<{ id: string; user_id: string; category: string; description: string; latitude: number; longitude: number; image_url: string | null; status: string; created_at: string }>>(
+        `/reports/public${category ? `?category=${category}` : ""}`
+      ),
   },
   map: {
     markers: () =>
@@ -124,11 +151,11 @@ export const api = {
     layers: (metricKey: string) =>
       fetchApi<Array<{ sensor_id: string; sensor_name: string; lat: number; lon: number; value: number; unit: string; quality_flag: string | null; time: string | null }>>(`/maps/layers/${metricKey}`),
     forecast: (metricKey: string, hoursAhead = 24) =>
-      fetchApi<Array<{ sensor_id: string; forecast: Array<{ time: string; value: number; lower_bound: number; upper_bound: number }> }>>(
+      fetchApi<Array<{ sensor_id: string; forecast: Array<{ time: string; value: number; lower_bound: number; upper_bound: number }>; regressors: string[]; regressor_importance: Record<string, number>; type: string }>>(
         `/maps/layers/${metricKey}/forecast?hours_ahead=${hoursAhead}`
       ),
     forecastSensor: (metricKey: string, sensorId: string, hoursAhead = 24) =>
-      fetchApi<{ sensor_id: string; forecast: Array<{ time: string; value: number; lower_bound: number; upper_bound: number }> }>(
+      fetchApi<{ sensor_id: string; forecast: Array<{ time: string; value: number; lower_bound: number; upper_bound: number }>; regressors: string[]; regressor_importance: Record<string, number>; type: string }>(
         `/maps/layers/${metricKey}/forecast?sensor_id=${sensorId}&hours_ahead=${hoursAhead}`
       ),
   },
@@ -138,6 +165,8 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    briefing: () =>
+      fetchApi<{ paragraphs: string[]; generated_at: string }>("/intelligence/briefing"),
     suggestions: (analysisType: string, bbox: { north: number; south: number; east: number; west: number }) => {
       const params = new URLSearchParams({
         analysis_type: analysisType,
@@ -188,6 +217,17 @@ export const api = {
         { token }
       );
     },
+    correlations: (days = 30) =>
+      fetchApi<{ metrics: string[]; pairs: Array<{ metric_a: string; metric_b: string; correlation: number }> }>(
+        `/analytics/correlations?days=${days}`
+      ),
+    cityHealth: () =>
+      fetchApi<{
+        aqi: { name: string; score: number; previous_score: number; trend: string; status: string; sparkline: (number | null)[] };
+        heat_stress: { name: string; score: number; previous_score: number; trend: string; status: string; sparkline: (number | null)[] };
+        livability: { name: string; score: number; previous_score: number; trend: string; status: string; sparkline: (number | null)[] };
+        updated_at: string;
+      }>("/city-health"),
     aggregate: (sensorId: string, metrics?: string[], from?: string, to?: string, token?: string) => {
       const params = new URLSearchParams({ sensor_id: sensorId });
       if (metrics?.length) params.set("metrics", metrics.join(","));
@@ -201,11 +241,11 @@ export const api = {
   },
   apiKeys: {
     list: (token: string) =>
-      fetchApi<Array<{ id: string; name: string; key_prefix: string; rate_limit: number; is_active: boolean; created_at: string }>>("/auth/api-keys", { token }),
+      fetchApi<Array<{ id: string; name: string; description?: string | null; key_prefix: string; tier: string; rate_limit: number; is_active: boolean; created_at: string; last_used_at?: string | null; total_requests?: number }>>("/developer/keys", { token }),
     create: (name: string, token: string) =>
-      fetchApi<{ id: string; name: string; key: string; rate_limit: number; created_at: string }>("/auth/api-keys", { method: "POST", body: JSON.stringify({ name }), token }),
+      fetchApi<{ id: string; name: string; description?: string | null; key: string; tier: string; rate_limit: number; created_at: string }>("/developer/keys", { method: "POST", body: JSON.stringify({ name }), token }),
     delete: (id: string, token: string) =>
-      fetchApi(`/auth/api-keys/${id}`, { method: "DELETE", token }),
+      fetchApi(`/developer/keys/${id}`, { method: "DELETE", token }),
   },
   admin: {
     sensors: {
