@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**20 / 28 tasks complete**
+**21 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -176,7 +176,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Map showing report locations
   - Link from dashboard "My Reports"
 
-- ❌ **R4.3** Create `/analytics/anomalies` page
+- ✅ **R4.3** Create `/analytics/anomalies` page
   - Table: sensor name, metric, value, z-score, detection method, timestamp
   - Filter by sensor type, severity, date range
   - Click row → sensor detail page
@@ -219,6 +219,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R3.6: Sensor latest now checks sensor existence and returns 404 for unknown IDs, sensor stats only list metric definitions that have readings for that sensor, histogram max values clamp into the final bucket, report creation uses real sensor coordinates when `sensor_id` is provided, and report listing accepts both `status_filter` and `status`. `python -m py_compile apps/api/app/api/v1/endpoints/sensors.py apps/api/app/api/v1/endpoints/reports.py` and `npx tsc --noEmit` pass.
 - R4.1: Added `/analytics` landing page with Correlations, Anomalies, Export, and City Health tool cards, active metric count, and city-health freshness context. Correlations now has a real back-link target. `npx tsc --noEmit` passes.
 - R4.2: Added `/reports/my`, backed by `/api/v1/reports/me`, with report list cards, status badges, status timeline, timestamps, coordinates, and a MapLibre report-location map. Dashboard "My Reports" now links to `/reports/my`. `npx tsc --noEmit` passes.
+- R4.3: Added `/analytics/anomalies` backed by `/api/v1/anomalies`, with sensor type, severity, date range, and search filters; table columns for sensor, metric, event value state, z-score, method, timestamp, and sensor-detail navigation. `npx tsc --noEmit` passes.
 
 ---
 

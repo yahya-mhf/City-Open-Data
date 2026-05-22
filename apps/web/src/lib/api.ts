@@ -254,6 +254,17 @@ export const api = {
       );
     },
   },
+  anomalies: {
+    list: (params?: { since?: string; sensor_type?: string; limit?: number }) => {
+      const search = new URLSearchParams();
+      if (params?.since) search.set("since", params.since);
+      if (params?.sensor_type) search.set("sensor_type", params.sensor_type);
+      if (params?.limit) search.set("limit", String(params.limit));
+      return fetchApi<Array<{ id: string; sensor_id: string; sensor_name: string; sensor_type: string; metric_key: string; metric_name: string; z_score: number; method: string; time: string }>>(
+        `/anomalies${search.toString() ? `?${search.toString()}` : ""}`
+      );
+    },
+  },
   apiKeys: {
     list: (token: string) =>
       fetchApi<Array<{ id: string; name: string; description?: string | null; key_prefix: string; tier: string; rate_limit: number; is_active: boolean; created_at: string; last_used_at?: string | null; total_requests?: number }>>("/developer/keys", { token }),
