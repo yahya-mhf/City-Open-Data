@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 
 import aio_pika
@@ -113,5 +114,10 @@ async def city_stats(db: AsyncSession = Depends(get_db)):
     from sqlalchemy import select, func
     from smart_city_database.models import Sensor, Alert
     sensor_count = await db.scalar(select(func.count(Sensor.id)).where(Sensor.status == "active"))
-    alert_count = await db.scalar(select(func.count(Alert.id)).where(Alert.acknowledged == False))
+    twenty_four_hours_ago = datetime.now(timezone.utc) - timedelta(hours=24)
+    alert_count = await db.scalar(
+        select(func.count(Alert.id))
+        .where(Alert.acknowledged == False)
+        .where(Alert.created_at >= twenty_four_hours_ago)
+    )
     return {"sensor_count": sensor_count or 0, "alert_count": alert_count or 0}

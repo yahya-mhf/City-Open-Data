@@ -5,7 +5,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { api, type BriefingResponse } from "@/lib/api";
 import AiStatusBadge from "@/components/AiStatusBadge";
-import { Badge, Button, Card, Skeleton } from "@/components/ui";
+import { Badge, Button, Card, Skeleton, Tooltip } from "@/components/ui";
 import { useAuth } from "@/lib/auth-context";
 
 interface Marker {
@@ -36,6 +36,12 @@ const HeroMap = dynamic(() => import("@/components/HeroMap"), {
   loading: () => <div className="absolute inset-0 bg-gray-950" />,
 });
 
+function formatStat(n: number): string {
+  if (n > 9999) return "9,999+";
+  if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, "") + "K";
+  return n.toLocaleString();
+}
+
 function formatFreshness(timestamp?: string | null): string {
   if (!timestamp) return "Updated just now";
   const elapsedSeconds = Math.max(0, Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000));
@@ -60,7 +66,9 @@ export default function Home() {
   const [stats, setStats] = useState<CityStats | null>(null);
   const [health, setHealth] = useState<CityHealthSummary | null>(null);
   const [briefing, setBriefing] = useState<BriefingResponse | null>(null);
-  const [failedCount, setFailedCount] = useState(0);
+  const [markerFailed, setMarkerFailed] = useState(false);
+  const [statsFailed, setStatsFailed] = useState(false);
+  const [healthFailed, setHealthFailed] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -81,10 +89,14 @@ export default function Home() {
         if (healthResult.status === "fulfilled") setHealth(healthResult.value);
         if (briefingResult.status === "fulfilled") setBriefing(briefingResult.value);
         setLastUpdated(new Date());
-        setFailedCount([markerResult, statsResult, healthResult].filter((result) => result.status === "rejected").length);
+        setMarkerFailed(markerResult.status === "rejected");
+        setStatsFailed(statsResult.status === "rejected");
+        setHealthFailed(healthResult.status === "rejected");
       } catch {
         if (!active) return;
-        setFailedCount(3);
+        setMarkerFailed(true);
+        setStatsFailed(true);
+        setHealthFailed(true);
       }
     };
 
@@ -105,7 +117,7 @@ export default function Home() {
       setBriefing(next);
       setLastUpdated(new Date());
     } catch (err) {
-      setFailedCount(1);
+      setStatsFailed(true);
     }
   };
 
@@ -113,6 +125,8 @@ export default function Home() {
   const activeSensors = stats?.sensor_count ?? markers.filter((marker) => marker.status === "active").length;
   const activeAlerts = stats?.alert_count ?? 0;
   const aqiScore = health?.aqi.score;
+  const anyFailed = markerFailed || statsFailed || healthFailed;
+  const allFailed = markerFailed && statsFailed && healthFailed;
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -123,41 +137,65 @@ export default function Home() {
 
         <div className="relative z-10 flex min-h-[calc(100vh-5.5rem)] flex-col justify-between px-4 py-6 sm:px-6 lg:px-10">
           <div className="flex items-start justify-between gap-4">
-            <Card className="max-w-md border-gray-200 bg-white/95 p-5 shadow-xl backdrop-blur dark:border-night-border dark:bg-night-secondary/95">
-              <div className="mb-4 flex items-start justify-between gap-4">
+            <Card className="max-w-md border-gray-200 bg-white/95 p-4 shadow-xl backdrop-blur dark:border-night-border dark:bg-night-secondary/95">
+              <div className="mb-3 flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-400">Marrakech Live Operations</p>
-                  <h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">Urban Pulse</h1>
-                  {failedCount === 0 && (
+                  <h1 className="mt-1 text-xl font-bold text-gray-900 dark:text-white">Urban Pulse</h1>
+                  {!anyFailed && (
                     <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{formatFreshness(markerFreshness ?? stats?.timestamp)}</p>
                   )}
                 </div>
-                <Badge tone={failedCount > 0 ? "danger" : "success"}>{failedCount > 0 ? "Degraded" : "Live"}</Badge>
+                <Badge tone={anyFailed ? "warning" : "success"} className="text-xs px-2 py-0.5">{anyFailed ? "Degraded" : "Live"}</Badge>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-night-border dark:bg-night-border/30">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Active Readings</p>
-                  <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">{stats ? activeSensors.toLocaleString() : <Skeleton className="h-8 w-16 bg-gray-200 dark:bg-night-border" />}</p>
-                  <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Sensors online</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-night-border dark:bg-night-border/30">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Active Readings</p>
+                  {statsFailed ? (
+                    <Tooltip label="unavailable">
+                      <p className="mt-1 text-2xl font-bold text-gray-400 dark:text-gray-500">&mdash;</p>
+                    </Tooltip>
+                  ) : (
+                    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{stats ? formatStat(activeSensors) : <Skeleton className="h-7 w-14 bg-gray-200 dark:bg-night-border" />}</p>
+                  )}
+                  <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Sensors online</p>
                 </div>
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-night-border dark:bg-night-border/30">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Active Alerts</p>
-                  <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">{stats ? activeAlerts.toLocaleString() : <Skeleton className="h-8 w-16 bg-gray-200 dark:bg-night-border" />}</p>
-                  <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Requiring attention</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-night-border dark:bg-night-border/30">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Active Alerts</p>
+                  {statsFailed ? (
+                    <Tooltip label="unavailable">
+                      <p className="mt-1 text-2xl font-bold text-gray-400 dark:text-gray-500">&mdash;</p>
+                    </Tooltip>
+                  ) : (
+                    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{stats ? formatStat(activeAlerts) : <Skeleton className="h-7 w-14 bg-gray-200 dark:bg-night-border" />}</p>
+                  )}
+                  <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">Requiring attention</p>
                 </div>
-                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-night-border dark:bg-night-border/30">
-                  <p className="text-xs text-gray-500 dark:text-gray-400">Air Quality</p>
-                  <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">{aqiScore !== undefined && aqiScore !== null ? Math.round(aqiScore) : <Skeleton className="h-8 w-16 bg-gray-200 dark:bg-night-border" />}</p>
-                  <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">AQI index</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-night-border dark:bg-night-border/30">
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">Air Quality</p>
+                  {healthFailed ? (
+                    <Tooltip label="unavailable">
+                      <p className="mt-1 text-2xl font-bold text-gray-400 dark:text-gray-500">&mdash;</p>
+                    </Tooltip>
+                  ) : aqiScore !== undefined && aqiScore !== null ? (
+                    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{Math.round(aqiScore)}</p>
+                  ) : !health ? (
+                    <Skeleton className="h-7 w-14 bg-gray-200 dark:bg-night-border" />
+                  ) : (
+                    <Tooltip label="No data">
+                      <p className="mt-1 text-2xl font-bold text-gray-400 dark:text-gray-500">&mdash;</p>
+                    </Tooltip>
+                  )}
+                  <p className="mt-0.5 text-[10px] text-gray-400 dark:text-gray-500">AQI index</p>
                 </div>
               </div>
 
-              <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="mt-3 flex items-center justify-between gap-3">
                 <Link href="/map" className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-700">
                   Open Operations View
                 </Link>
-                {failedCount > 0 && (
+                {allFailed && (
                   <span className="text-xs text-red-600 dark:text-red-400">Some data unavailable</span>
                 )}
               </div>
