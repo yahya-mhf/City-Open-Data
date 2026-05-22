@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
 
@@ -279,9 +279,5 @@ function AdminContent() {
 }
 
 export default function AdminPage() {
-  return (
-    <AuthProvider>
-      <AdminContent />
-    </AuthProvider>
-  );
+  return <AdminContent />;
 }

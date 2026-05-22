@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
 
@@ -193,9 +193,5 @@ function ReportForm() {
 }
 
 export default function NewReportPage() {
-  return (
-    <AuthProvider>
-      <ReportForm />
-    </AuthProvider>
-  );
+  return <ReportForm />;
 }

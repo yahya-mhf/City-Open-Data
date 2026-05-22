@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import {
   LineChart, BarChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -908,9 +908,5 @@ function DeveloperContent() {
 }
 
 export default function DeveloperPage() {
-  return (
-    <AuthProvider>
-      <DeveloperContent />
-    </AuthProvider>
-  );
+  return <DeveloperContent />;
 }

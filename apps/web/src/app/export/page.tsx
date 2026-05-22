@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useTheme } from "@/lib/theme-context";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { ExportPanel } from "@/components/ExportPanel";
 
 function ExportPageContent() {
@@ -64,9 +64,5 @@ function ExportPageContent() {
 }
 
 export default function ExportPage() {
-  return (
-    <AuthProvider>
-      <ExportPageContent />
-    </AuthProvider>
-  );
+  return <ExportPageContent />;
 }

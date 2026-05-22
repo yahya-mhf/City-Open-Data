@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
 import SensorDrawer from "@/components/SensorDrawer";
@@ -80,9 +80,5 @@ function MapPageContent() {
 }
 
 export default function MapPage() {
-  return (
-    <AuthProvider>
-      <MapPageContent />
-    </AuthProvider>
-  );
+  return <MapPageContent />;
 }

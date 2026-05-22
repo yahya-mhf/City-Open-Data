@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**1 / 28 tasks complete**
+**2 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -36,7 +36,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Fix reports list status filter: backend param is `status_filter`, frontend sends `status`
   - Fix forecast cache key to include `hours_ahead`
 
-- ❌ **R1.2** Create one global app shell
+- ✅ **R1.2** Create one global app shell
   - Single persistent layout in `apps/web/src/app/layout.tsx` with: top navbar, role-aware nav links, night mode toggle, demo badge
   - Remove per-page nav/header rebuilds — every page currently builds its own
   - Role-aware nav: citizen sees Map/Reports/Account; operator adds Alerts/Admin; admin adds full Admin

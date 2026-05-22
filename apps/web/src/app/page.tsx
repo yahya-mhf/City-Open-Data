@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import CityHealth from "@/components/CityHealth";
 import DailyBriefing from "@/components/DailyBriefing";
@@ -175,9 +175,5 @@ function HomeContent() {
 }
 
 export default function Home() {
-  return (
-    <AuthProvider>
-      <HomeContent />
-    </AuthProvider>
-  );
+  return <HomeContent />;
 }

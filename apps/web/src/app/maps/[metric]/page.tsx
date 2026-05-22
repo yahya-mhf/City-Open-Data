@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import maplibregl from "maplibre-gl";
 import { api, IntelligenceSuggestion } from "@/lib/api";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import SensorDrawer from "@/components/SensorDrawer";
 import IntelligencePanel from "@/components/IntelligencePanel";
@@ -670,9 +670,5 @@ function MetricMapContent() {
 }
 
 export default function MetricMapPage() {
-  return (
-    <AuthProvider>
-      <MetricMapContent />
-    </AuthProvider>
-  );
+  return <MetricMapContent />;
 }

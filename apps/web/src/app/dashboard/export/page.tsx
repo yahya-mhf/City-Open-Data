@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AuthProvider, useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { ExportPanel } from "@/components/ExportPanel";
 
@@ -86,9 +86,5 @@ function ExportContent() {
 }
 
 export default function ExportPage() {
-  return (
-    <AuthProvider>
-      <ExportContent />
-    </AuthProvider>
-  );
+  return <ExportContent />;
 }

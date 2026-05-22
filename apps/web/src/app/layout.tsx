@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/lib/theme-context";
-import SeismicAlertWrapper from "@/components/SeismicAlertWrapper";
-import ChatWrapper from "@/components/chatbot/ChatWrapper";
-import DemoBadge from "@/components/DemoBadge";
+import { AuthProvider } from "@/lib/auth-context";
+import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
   title: "Urban Pulse",
@@ -15,10 +14,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-gray-50 dark:bg-night-primary dark:text-gray-100">
         <ThemeProvider>
-          {children}
-          <SeismicAlertWrapper />
-          <DemoBadge />
-          <ChatWrapper />
+          <AuthProvider>
+            <AppShell>{children}</AppShell>
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
