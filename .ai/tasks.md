@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**8 / 28 tasks complete**
+**9 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -87,7 +87,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Top bar: layer selector pills, freshness indicator, alert count badge
   - Fix: sensor report form must use real sensor coordinates, not `0,0`
 
-- ❌ **R2.4** Redesign sensor detail page `/sensors/[id]`
+- ✅ **R2.4** Redesign sensor detail page `/sensors/[id]`
   - Header: sensor name, type badge, status badge, coordinates, last seen timestamp
   - Mini map showing sensor location with surrounding sensors
   - Live metric cards: current value, unit, trend arrow, vs 24h average
@@ -207,6 +207,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R2.1: Added shared UI primitives and migrated the global shell, page states, dashboard, account, report submission form, and demo badge to the shared Button/Badge/Card/Input/Select/Textarea/Tooltip patterns with dark-mode states. `npx tsc --noEmit` passes. `ruff check .` and `poetry run ruff check .` could not run because Ruff is not installed/available in the local Poetry environment. `npm run lint` opens the deprecated Next.js ESLint setup prompt because ESLint has not been configured.
 - R2.2: Rebuilt `/` as an operations-first live map screen. `HeroMap` now renders real sensor locations from `/api/v1/map/markers`, the first viewport shows live Sensors/Alerts/AQI KPIs with freshness text, the daily briefing is compact at bottom-left, and operator quick links plus "Open Operations View" route to `/map`. `npx tsc --noEmit` passes.
 - R2.3: Reworked `/map` into an operations layout with top freshness/alert/layer controls, a sensor fleet sidebar, search plus status/type/metric filters, and filtered MapLibre sensor layers feeding the existing drawer click flow. Fixed sensor report submissions from `/sensors/[id]` to use the sensor's real coordinates instead of `0,0`. `npx tsc --noEmit` passes.
+- R2.4: Updated `/sensors/[id]` with a proper sensor header, type/status badges, coordinates, last-seen metadata, recent alerts, real report coordinates, mini map, QR section, and existing real charts. Removed `ScenarioSimulator` from the page. `npx tsc --noEmit` passes.
 
 ---
 
