@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**9 / 28 tasks complete**
+**10 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -96,7 +96,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Report section: form with sensor coordinates pre-filled (fix the `0,0` bug)
   - Remove `ScenarioSimulator` — it is not a real simulation, misleading to users
 
-- ❌ **R2.5** Redesign admin page `/admin`
+- ✅ **R2.5** Redesign admin page `/admin`
   - Gate by `role === "admin"` only — remove operator access (operators get 403 from backend anyway)
   - Proper management console: sidebar tabs for Sensors / Users / Alerts / Reports / Hubs
   - Each tab: data table with search, pagination, status filters
@@ -208,6 +208,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R2.2: Rebuilt `/` as an operations-first live map screen. `HeroMap` now renders real sensor locations from `/api/v1/map/markers`, the first viewport shows live Sensors/Alerts/AQI KPIs with freshness text, the daily briefing is compact at bottom-left, and operator quick links plus "Open Operations View" route to `/map`. `npx tsc --noEmit` passes.
 - R2.3: Reworked `/map` into an operations layout with top freshness/alert/layer controls, a sensor fleet sidebar, search plus status/type/metric filters, and filtered MapLibre sensor layers feeding the existing drawer click flow. Fixed sensor report submissions from `/sensors/[id]` to use the sensor's real coordinates instead of `0,0`. `npx tsc --noEmit` passes.
 - R2.4: Updated `/sensors/[id]` with a proper sensor header, type/status badges, coordinates, last-seen metadata, recent alerts, real report coordinates, mini map, QR section, and existing real charts. Removed `ScenarioSimulator` from the page. `npx tsc --noEmit` passes.
+- R2.5: Made `/admin` admin-only, added explicit permission denied UI, rebuilt it as a sidebar management console with search/filter/pagination, inline sensor editing, sensor deactivation confirmation, role dropdowns for users, report status workflow, and table views for alerts/reports/hubs. Backend admin now supports sensor patch, sensor soft-delete via inactive status, and user role/plan patch. `npx tsc --noEmit` and `python -m py_compile apps/api/app/api/v1/endpoints/admin.py` pass.
 
 ---
 

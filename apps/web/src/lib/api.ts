@@ -257,14 +257,18 @@ export const api = {
         fetchApi<Array<{ id: string; name: string; type: string; latitude: number; longitude: number; status: string; installed_at: string }>>("/admin/sensors", { token }),
       create: (data: Record<string, unknown>, token: string) =>
         fetchApi<{ id: string; name: string; type: string; latitude: number; longitude: number; status: string; installed_at: string }>("/admin/sensors", { method: "POST", body: JSON.stringify(data), token }),
+      update: (id: string, data: Record<string, unknown>, token: string) =>
+        fetchApi<{ id: string; name: string; type: string; latitude: number; longitude: number; status: string; installed_at: string }>(`/admin/sensors/${id}`, { method: "PATCH", body: JSON.stringify(data), token }),
       delete: (id: string, token: string) =>
         fetchApi(`/admin/sensors/${id}`, { method: "DELETE", token }),
     },
     users: {
       list: (token: string) =>
-        fetchApi<Array<{ id: string; email: string; full_name: string; role: string; created_at: string }>>("/admin/users", { token }),
+        fetchApi<Array<{ id: string; email: string; full_name: string; role: string; plan: string; created_at: string }>>("/admin/users", { token }),
       create: (data: Record<string, unknown>, token: string) =>
         fetchApi("/admin/users", { method: "POST", body: JSON.stringify(data), token }),
+      update: (id: string, data: Record<string, unknown>, token: string) =>
+        fetchApi<{ id: string; email: string; full_name: string; role: string; plan: string; created_at: string }>(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(data), token }),
     },
     hubs: {
       list: (token: string) =>
