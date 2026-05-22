@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**6 / 28 tasks complete**
+**7 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -72,7 +72,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Replace all ad-hoc styled elements across every page with these components
   - No more inline styles, no more per-page button/card/badge variants
 
-- ❌ **R2.2** Redesign the home/landing page
+- ✅ **R2.2** Redesign the home/landing page
   - Remove marketing hero feel — this is an operations product
   - New layout: full-screen live map background, floating glass card top-left with city KPIs (sensor count, active alerts, AQI), daily briefing bottom-left, quick-access buttons top-right
   - HeroMap must show real sensor locations from `/api/v1/map/markers`
@@ -205,6 +205,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 > Record discoveries, blockers, and unexpected findings here after each session.
 
 - R2.1: Added shared UI primitives and migrated the global shell, page states, dashboard, account, report submission form, and demo badge to the shared Button/Badge/Card/Input/Select/Textarea/Tooltip patterns with dark-mode states. `npx tsc --noEmit` passes. `ruff check .` and `poetry run ruff check .` could not run because Ruff is not installed/available in the local Poetry environment. `npm run lint` opens the deprecated Next.js ESLint setup prompt because ESLint has not been configured.
+- R2.2: Rebuilt `/` as an operations-first live map screen. `HeroMap` now renders real sensor locations from `/api/v1/map/markers`, the first viewport shows live Sensors/Alerts/AQI KPIs with freshness text, the daily briefing is compact at bottom-left, and operator quick links plus "Open Operations View" route to `/map`. `npx tsc --noEmit` passes.
 
 ---
 

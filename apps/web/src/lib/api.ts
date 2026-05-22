@@ -141,6 +141,10 @@ export const api = {
         `/reports/public${category ? `?category=${category}` : ""}`
       ),
   },
+  city: {
+    stats: () =>
+      fetchApi<{ sensor_count: number; alert_count: number; timestamp?: string }>("/city-stats"),
+  },
   map: {
     markers: () =>
       fetchApi<Array<{ id: string; name: string; latitude: number; longitude: number; status: string; latest: Record<string, unknown> }>>("/map/markers"),
