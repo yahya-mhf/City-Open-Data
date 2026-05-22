@@ -93,25 +93,24 @@ def _get_bucket_expr(granularity: str):
     return sa_func.time_bucket(text(f"'{interval}'::interval"), models.SensorReading.time)
 
 
+async def _resolve_sensor_ids(sensor_ids: str, db: AsyncSession) -> list[str]:
+    if sensor_ids != "all":
+        return [sid.strip() for sid in sensor_ids.split(",") if sid.strip()]
+    result = await db.execute(select(models.Sensor.id))
+    return [row[0] for row in result.all()]
+
+
 @router.get("/preview")
 async def export_preview(
     sensor_ids: str = Query(..., description="Comma-separated sensor IDs or 'all'"),
     metric_keys: str = Query(..., description="Comma-separated metric keys or 'all'"),
     start: datetime = Query(...),
     end: datetime = Query(...),
-    district: str | None = Query(None),
     granularity: Literal["raw", "1min", "1hour", "1day"] = Query("1hour"),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(resolve_api_key_or_user),
 ):
-    if sensor_ids == "all":
-        q = select(models.Sensor.id)
-        if district:
-            q = q.where(models.Sensor.type == district)
-        result = await db.execute(q)
-        id_list = [row[0] for row in result.all()]
-    else:
-        id_list = [sid.strip() for sid in sensor_ids.split(",")]
+    id_list = await _resolve_sensor_ids(sensor_ids, db)
 
     if metric_keys == "all":
         result = await db.execute(select(models.MetricDefinition.key))
@@ -122,9 +121,11 @@ async def export_preview(
     metric_subq = select(models.MetricDefinition.id, models.MetricDefinition.key).subquery()
 
     count_query = select(sa_func.count()).select_from(
-        select(models.SensorReading.time).where(
-            models.SensorReading.sensor_id.in_(id_list),
+        select(models.SensorReading.time).join(
+            metric_subq,
             models.SensorReading.metric_id == metric_subq.c.id,
+        ).where(
+            models.SensorReading.sensor_id.in_(id_list),
             metric_subq.c.key.in_(key_list),
             models.SensorReading.time >= start,
             models.SensorReading.time <= end,
@@ -134,9 +135,11 @@ async def export_preview(
     if granularity != "raw":
         bucket_expr = _get_bucket_expr(granularity)
         count_query = select(sa_func.count()).select_from(
-            select(bucket_expr).where(
-                models.SensorReading.sensor_id.in_(id_list),
+            select(bucket_expr).join(
+                metric_subq,
                 models.SensorReading.metric_id == metric_subq.c.id,
+            ).where(
+                models.SensorReading.sensor_id.in_(id_list),
                 metric_subq.c.key.in_(key_list),
                 models.SensorReading.time >= start,
                 models.SensorReading.time <= end,
@@ -168,7 +171,6 @@ async def export_sensors(
     end: datetime = Query(...),
     format_: str = Query("csv", alias="format", description="csv, json, parquet, geojson"),
     granularity: Literal["raw", "1min", "1hour", "1day"] = Query("1hour"),
-    district: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(resolve_api_key_or_user),
 ):
@@ -180,14 +182,7 @@ async def export_sensors(
     if granularity in ("raw", "1min") and not is_paid:
         raise HTTPException(status_code=403, detail=f"{granularity} granularity requires Pro or Enterprise plan")
 
-    if sensor_ids == "all":
-        q = select(models.Sensor.id)
-        if district:
-            q = q.where(models.Sensor.type == district)
-        result = await db.execute(q)
-        id_list = [row[0] for row in result.all()]
-    else:
-        id_list = [sid.strip() for sid in sensor_ids.split(",")]
+    id_list = await _resolve_sensor_ids(sensor_ids, db)
 
     if metric_keys == "all":
         result = await db.execute(select(models.MetricDefinition.key))

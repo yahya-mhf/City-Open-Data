@@ -7,8 +7,6 @@ from sqlalchemy import select, func, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from smart_city_database import models
-from smart_city_shared.constants import API_KEY_TIERS
-
 from ..middleware.api_key_auth import verify_api_key
 from ..core.dependencies import get_db, redis_manager
 
@@ -17,11 +15,33 @@ logger = logging.getLogger("smart_city.public_api")
 router = APIRouter()
 
 
+async def _api_key_metric_keys(db: AsyncSession, api_key: dict) -> list[str] | None:
+    allowed = api_key.get("allowed_metrics")
+    max_metrics = api_key.get("max_metrics", -1)
+    if allowed is not None:
+        keys = list(allowed)
+    elif max_metrics == -1:
+        return None
+    else:
+        result = await db.execute(
+            select(models.MetricDefinition.key)
+            .where(models.MetricDefinition.is_active == True)
+            .order_by(models.MetricDefinition.display_name, models.MetricDefinition.key)
+            .limit(max_metrics)
+        )
+        keys = [row[0] for row in result.all()]
+
+    if max_metrics != -1:
+        keys = keys[:max_metrics]
+    return keys
+
+
 @router.get("/sensors")
 async def public_list_sensors(
     db: AsyncSession = Depends(get_db),
     api_key: dict = Depends(verify_api_key),
 ):
+    allowed_metric_keys = await _api_key_metric_keys(db, api_key)
     result = await db.execute(
         select(models.Sensor).where(models.Sensor.status == "active").order_by(models.Sensor.name)
     )
@@ -29,14 +49,13 @@ async def public_list_sensors(
     sensor_ids = [str(s.id) for s in sensors]
     latest_readings = await redis_manager.get_all_latest_readings(sensor_ids)
 
-    allowed = api_key.get("allowed_metrics")
     data = []
     for s in sensors:
         sid = str(s.id)
         reading = latest_readings.get(sid, {}) or {}
         metrics = reading.get("metrics", {})
-        if allowed is not None:
-            metrics = {k: v for k, v in metrics.items() if k in allowed}
+        if allowed_metric_keys is not None:
+            metrics = {k: v for k, v in metrics.items() if k in allowed_metric_keys}
         data.append({
             "id": sid,
             "name": s.name,
@@ -62,6 +81,7 @@ async def public_sensor_readings(
     db: AsyncSession = Depends(get_db),
     api_key: dict = Depends(verify_api_key),
 ):
+    allowed_metric_keys = await _api_key_metric_keys(db, api_key)
     max_days = api_key["history_days"]
     now = datetime.now(timezone.utc)
     to = to or now
@@ -78,11 +98,10 @@ async def public_sensor_readings(
 
     if metric:
         metric_filter = metric_join.c.key == metric
-        allowed = api_key.get("allowed_metrics")
-        if allowed is not None and metric not in allowed:
+        if allowed_metric_keys is not None and metric not in allowed_metric_keys:
             raise HTTPException(status_code=403, detail="Metric not allowed for this API key")
     else:
-        metric_filter = True
+        metric_filter = metric_join.c.key.in_(allowed_metric_keys) if allowed_metric_keys is not None else True
 
     bucket = func.time_bucket(text(f"'{interval}'::interval"), models.SensorReading.time)
     query = (
@@ -124,14 +143,14 @@ async def public_list_metrics(
     db: AsyncSession = Depends(get_db),
     api_key: dict = Depends(verify_api_key),
 ):
+    allowed_metric_keys = await _api_key_metric_keys(db, api_key)
     result = await db.execute(
         select(models.MetricDefinition).order_by(models.MetricDefinition.display_name)
     )
     metrics = result.scalars().all()
-    allowed = api_key.get("allowed_metrics")
     data = []
     for m in metrics:
-        if allowed is not None and m.key not in allowed:
+        if allowed_metric_keys is not None and m.key not in allowed_metric_keys:
             continue
         data.append({
             "key": m.key,
@@ -150,8 +169,8 @@ async def public_layer_data(
     db: AsyncSession = Depends(get_db),
     api_key: dict = Depends(verify_api_key),
 ):
-    allowed = api_key.get("allowed_metrics")
-    if allowed is not None and metric_key not in allowed:
+    allowed_metric_keys = await _api_key_metric_keys(db, api_key)
+    if allowed_metric_keys is not None and metric_key not in allowed_metric_keys:
         raise HTTPException(status_code=403, detail="Metric not allowed for this API key")
 
     metric_result = await db.execute(
@@ -160,10 +179,6 @@ async def public_layer_data(
     metric = metric_result.scalar_one_or_none()
     if not metric:
         raise HTTPException(status_code=404, detail=f"Metric '{metric_key}' not found")
-
-    max_metrics = api_key["max_metrics"]
-    if max_metrics != -1:
-        pass
 
     sensors_result = await db.execute(
         select(models.Sensor).where(models.Sensor.status == "active")
