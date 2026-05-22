@@ -196,7 +196,7 @@ function MapPageContent() {
         <Card className="hidden min-h-0 overflow-hidden p-0 xl:flex xl:flex-col">
           <div className="border-b border-gray-200 p-4 dark:border-night-border">
             <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">Sensor Fleet</h2>
-            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">Search and filter by operating state, type, or metric.</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-300">Search and filter by operating state, type, or metric.</p>
           </div>
           <div className="space-y-3 border-b border-gray-200 p-4 dark:border-night-border">
             <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search sensor name or ID" />
@@ -238,7 +238,7 @@ function MapPageContent() {
                     <span className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{marker.name}</span>
                     <Badge tone={statusTone(marker.status)}>{marker.status}</Badge>
                   </div>
-                  <div className="mt-1 flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="mt-1 flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-300">
                     <span>{marker.type?.replace(/_/g, " ") ?? "Unknown type"}</span>
                     <span>{formatFreshness(markerTimestamp(marker))}</span>
                   </div>

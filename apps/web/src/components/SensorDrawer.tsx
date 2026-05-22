@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import Link from "next/link";
 import { api, createWebSocket } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import SensorQRCode from "./SensorQRCode";
 import FreshnessIndicator from "@/components/FreshnessIndicator";
 import {
@@ -55,6 +56,7 @@ function toISO(d: Date): string {
 
 export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
   const { user, token } = useAuth();
+  const { nightMode } = useTheme();
   const isPaid = user?.plan === "pro" || user?.plan === "enterprise";
 
   const [sensor, setSensor] = useState<SensorData | null>(null);
@@ -150,9 +152,9 @@ export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
   }, [sensorId, fetchSensor]);
 
   const statusColor: Record<string, string> = {
-    active: "bg-green-100 text-green-800",
-    inactive: "bg-red-100 text-red-800",
-    maintenance: "bg-amber-100 text-amber-800",
+    active: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    inactive: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    maintenance: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
   };
 
   const metricKeys = latest?.metrics ? Object.keys(latest.metrics) : [];
@@ -186,38 +188,38 @@ export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
   return createPortal(
     <div className="fixed inset-0 z-[2000] flex items-end md:items-stretch md:justify-end">
       <div className="fixed inset-0 bg-black/30 z-[1999]" onClick={onClose} />
-      <div className="relative w-full md:max-w-2xl max-h-[80vh] md:max-h-none bg-white shadow-2xl overflow-y-auto z-[2000] rounded-t-2xl md:rounded-none">
-        <div className="sticky top-0 bg-white border-b z-10 px-6 py-4 flex items-center justify-between">
+      <div className="relative w-full md:max-w-2xl max-h-[80vh] md:max-h-none bg-white dark:bg-night-secondary shadow-2xl overflow-y-auto z-[2000] rounded-t-2xl md:rounded-none">
+        <div className="sticky top-0 bg-white dark:bg-night-secondary border-b dark:border-night-border z-10 px-6 py-4 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold">{sensor?.name ?? "Loading..."}</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{sensor?.name ?? "Loading..."}</h2>
             {sensor && (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-gray-500 dark:text-gray-300">
                 {sensor.latitude.toFixed(4)}, {sensor.longitude.toFixed(4)}
               </p>
             )}
           </div>
           <div className="flex items-center gap-3">
             {sensor && (
-              <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[sensor.status] || "bg-gray-100 text-gray-800"}`}>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColor[sensor.status] || "bg-gray-100 text-gray-800 dark:bg-night-border dark:text-gray-200"}`}>
                 {sensor.status}
               </span>
             )}
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 text-2xl leading-none">&times;</button>
           </div>
         </div>
 
         <div className="p-6 space-y-6">
           {loading ? (
-            <p className="text-gray-500 text-center py-12">Loading sensor data...</p>
+            <p className="text-gray-500 dark:text-gray-300 text-center py-12">Loading sensor data...</p>
           ) : !sensor ? (
-            <p className="text-red-600 text-center py-12">Sensor not found</p>
+            <p className="text-red-600 dark:text-red-300 text-center py-12">Sensor not found</p>
           ) : (
             <>
               {alerts.length > 0 && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                  <p className="text-sm font-medium text-red-800">Active Alerts ({alerts.length})</p>
+                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+                  <p className="text-sm font-medium text-red-800 dark:text-red-300">Active Alerts ({alerts.length})</p>
                   {alerts.slice(0, 3).map((a) => (
-                    <p key={a.id} className="text-xs text-red-600 mt-1">
+                    <p key={a.id} className="text-xs text-red-600 dark:text-red-400 mt-1">
                       [{a.severity}] {a.message}
                     </p>
                   ))}
@@ -226,23 +228,23 @@ export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {Object.entries(latest?.metrics ?? {}).map(([key, value]) => (
-                  <div key={key} className="bg-gray-50 rounded-lg p-3 text-center">
-                    <div className="text-xs text-gray-500 uppercase">{key}</div>
-                    <div className="text-lg font-bold mt-1">{value}</div>
+                  <div key={key} className="bg-gray-50 dark:bg-night-border/50 rounded-lg p-3 text-center">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 uppercase">{key}</div>
+                    <div className="text-lg font-bold mt-1 text-gray-900 dark:text-gray-100">{value}</div>
                   </div>
                 ))}
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold">Historical Data</h3>
-                  <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Historical Data</h3>
+                  <div className="flex gap-1 bg-gray-100 dark:bg-night-border rounded-lg p-1">
                     {(["1h", "24h", "7d"] as TimeRange[]).map((r) => (
                       <button
                         key={r}
                         onClick={() => setTimeRange(r)}
                         className={`px-3 py-1 text-xs font-medium rounded-md transition ${
-                          timeRange === r ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+                          timeRange === r ? "bg-white dark:bg-night-primary shadow text-gray-900 dark:text-gray-100" : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                         }`}
                       >
                         {r}
@@ -252,34 +254,34 @@ export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
                 </div>
 
                 {!isPaid ? (
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-center">
-                    <p className="text-yellow-800 font-medium text-sm mb-1">Historical data requires Pro</p>
-                    <Link href="/account" className="text-yellow-700 text-xs underline">Upgrade plan</Link>
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4 text-center">
+                    <p className="text-yellow-800 dark:text-yellow-300 font-medium text-sm mb-1">Historical data requires Pro</p>
+                    <Link href="/account" className="text-yellow-700 dark:text-yellow-400 text-xs underline">Upgrade plan</Link>
                   </div>
                 ) : metricKeys.length === 0 ? (
-                  <p className="text-gray-500 text-sm">No metrics available</p>
+                  <p className="text-gray-500 dark:text-gray-300 text-sm">No metrics available</p>
                 ) : (
                   <div className="space-y-6">
                     {metricKeys.map((metricKey) => {
                       const data = chartDataByMetric(metricKey);
                       if (data.length === 0) return null;
                       return (
-                        <div key={metricKey} className="bg-gray-50 rounded-lg p-4">
+                        <div key={metricKey} className="bg-gray-50 dark:bg-night-border/50 rounded-lg p-4">
                           <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-semibold capitalize">{metricKey}</h4>
+                            <h4 className="text-sm font-semibold capitalize text-gray-900 dark:text-gray-100">{metricKey}</h4>
                             <button
                               onClick={() => handleCsvDownload(metricKey)}
                               disabled={csvLoading}
-                              className="text-xs text-primary-600 hover:text-primary-800 disabled:text-gray-400"
+                              className="text-xs text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 disabled:text-gray-400"
                             >
                               {csvLoading ? "..." : "Download CSV"}
                             </button>
                           </div>
                           <ResponsiveContainer width="100%" height={180}>
                             <LineChart data={data}>
-                              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                              <XAxis dataKey="time" tick={{ fontSize: 10 }} interval="preserveStartEnd" />
-                              <YAxis tick={{ fontSize: 10 }} />
+                          <CartesianGrid strokeDasharray="3 3" stroke={nightMode ? "#374151" : "#e5e7eb"} />
+                          <XAxis dataKey="time" tick={{ fontSize: 10, fill: nightMode ? "#d1d5db" : "#6b7280" }} interval="preserveStartEnd" />
+                          <YAxis tick={{ fontSize: 10, fill: nightMode ? "#d1d5db" : "#6b7280" }} />
                               <Tooltip />
                               <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} dot={false} />
                             </LineChart>

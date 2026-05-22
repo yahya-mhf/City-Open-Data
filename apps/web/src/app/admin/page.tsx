@@ -164,7 +164,7 @@ function AdminContent() {
       <div className="flex min-h-[24rem] items-center justify-center">
         <Card className="max-w-md text-center">
           <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Permission denied</h1>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Admin role is required for this console.</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-300">Admin role is required for this console.</p>
           <Link href="/" className="mt-4 inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white">Go home</Link>
         </Card>
       </div>
@@ -200,7 +200,7 @@ function AdminContent() {
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Admin Console</h1>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage sensors, users, alerts, reports, and hubs.</p>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">Manage sensors, users, alerts, reports, and hubs.</p>
               </div>
               <div className="flex gap-2">
                 <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${activeTab}`} />
@@ -291,7 +291,7 @@ function AdminContent() {
             )}
           </Card>
 
-          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+          <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-300">
             <span>{activeRows.length} records</span>
             <div className="flex items-center gap-2">
               <Button variant="secondary" size="sm" onClick={() => setPage((prev) => Math.max(1, prev - 1))} disabled={page === 1}>Previous</Button>

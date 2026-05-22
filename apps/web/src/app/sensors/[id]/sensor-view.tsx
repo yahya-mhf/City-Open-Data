@@ -152,7 +152,7 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
         ) : loadError ? (
           <PageError message={loadError} retry={() => window.location.reload()} />
         ) : !sensor ? (
-          <div className="text-center py-20 text-red-600">Sensor not found</div>
+          <div className="text-center py-20 text-red-600 dark:text-red-300">Sensor not found</div>
         ) : (
           <div className="space-y-6">
             <Card>
@@ -163,7 +163,7 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
                     <Badge tone="info">{sensor.type.replace(/_/g, " ")}</Badge>
                     <Badge tone={statusTone}>{sensor.status}</Badge>
                   </div>
-                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">ID: {id}</p>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-300">ID: {id}</p>
                 </div>
                 <div className="grid gap-2 text-sm text-gray-600 dark:text-gray-300 sm:grid-cols-3 lg:min-w-[34rem]">
                   <div className="rounded-lg border border-gray-200 p-3 dark:border-night-border">
@@ -198,7 +198,7 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
               <Card>
                 <h2 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Recent Alerts</h2>
                 {alerts.length === 0 ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">No active alerts for this sensor.</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-300">No active alerts for this sensor.</p>
                 ) : (
                   <div className="space-y-3">
                     {alerts.slice(0, 5).map((alert) => (
@@ -254,7 +254,7 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
                         Cancel
                       </Button>
                     </div>
-                    {reportMsg && <p className="text-sm text-green-700 dark:text-green-400">{reportMsg}</p>}
+                    {reportMsg && <p className="text-sm text-green-700 dark:text-green-300">{reportMsg}</p>}
                   </div>
                 ) : (
                   <Button onClick={() => setReportForm(true)}>

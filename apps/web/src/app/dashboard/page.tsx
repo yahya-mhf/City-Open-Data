@@ -37,7 +37,7 @@ function DashboardContent() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p>Please <Link href="/login" className="text-primary-600">login</Link> to view dashboard.</p>
+          <p className="text-gray-700 dark:text-gray-300">Please <Link href="/login" className="text-primary-600 dark:text-primary-400">login</Link> to view dashboard.</p>
       </div>
     );
   }
@@ -54,7 +54,7 @@ function DashboardContent() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Dashboard</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Overview for {user.full_name}</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">Overview for {user.full_name}</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
@@ -74,24 +74,24 @@ function DashboardContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Link href="/map" className="block rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-primary-200 hover:shadow-md dark:border-night-border dark:bg-night-secondary">
             <h3 className="text-lg font-semibold">View Map</h3>
-            <p className="text-gray-600 mt-2 dark:text-gray-400">See all sensors on an interactive map</p>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">See all sensors on an interactive map</p>
           </Link>
           <Link href="/reports/new" className="block rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-primary-200 hover:shadow-md dark:border-night-border dark:bg-night-secondary">
             <h3 className="text-lg font-semibold">Submit Report</h3>
-            <p className="text-gray-600 mt-2 dark:text-gray-400">Report an issue in your city</p>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Report an issue in your city</p>
           </Link>
           <Link href="/reports/my" className="block rounded-lg border border-gray-200 bg-white p-6 shadow-sm transition hover:border-primary-200 hover:shadow-md dark:border-night-border dark:bg-night-secondary">
             <h3 className="text-lg font-semibold">My Reports</h3>
-            <p className="text-gray-600 mt-2 dark:text-gray-400">Track your submitted reports</p>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Track your submitted reports</p>
           </Link>
           <Link href="/export" className="block rounded-lg border border-l-4 border-gray-200 border-l-green-500 bg-white p-6 shadow-sm transition hover:border-primary-200 hover:shadow-md dark:border-night-border dark:border-l-green-500 dark:bg-night-secondary">
             <h3 className="text-lg font-semibold">Data Export</h3>
-            <p className="text-gray-600 mt-2 dark:text-gray-400">Download sensor data as CSV, JSON, or Parquet</p>
+            <p className="text-gray-600 dark:text-gray-300 mt-2">Download sensor data as CSV, JSON, or Parquet</p>
           </Link>
           {isOperator && (
             <Link href="/admin" className="block rounded-lg border border-l-4 border-gray-200 border-l-primary-500 bg-white p-6 shadow-sm transition hover:border-primary-200 hover:shadow-md dark:border-night-border dark:border-l-primary-500 dark:bg-night-secondary">
               <h3 className="text-lg font-semibold">Admin Panel</h3>
-              <p className="text-gray-600 mt-2 dark:text-gray-400">Manage sensors, users, and reports</p>
+              <p className="text-gray-600 dark:text-gray-300 mt-2">Manage sensors, users, and reports</p>
             </Link>
           )}
         </div>

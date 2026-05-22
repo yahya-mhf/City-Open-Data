@@ -41,7 +41,7 @@ export default function AnalyticsPage() {
       <main className="mx-auto max-w-7xl px-4 py-8">
         <Card className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Analytics</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Operational analytics tools for sensor relationships, anomalies, exports, and city health.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">Operational analytics tools for sensor relationships, anomalies, exports, and city health.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Badge tone="info">{metricCount ?? "--"} active metrics</Badge>
             <Badge tone="default">{freshness(cityUpdatedAt)}</Badge>
@@ -55,11 +55,11 @@ export default function AnalyticsPage() {
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{tool.title}</h2>
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{tool.description}</p>
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{tool.description}</p>
                   </div>
                   <Badge tone="info">{tool.badge}</Badge>
                 </div>
-                <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">{tool.title === "City Health" ? freshness(cityUpdatedAt) : "Open tool"}</p>
+                <p className="mt-4 text-xs text-gray-500 dark:text-gray-300">{tool.title === "City Health" ? freshness(cityUpdatedAt) : "Open tool"}</p>
               </Card>
             </Link>
           ))}

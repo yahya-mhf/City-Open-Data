@@ -163,7 +163,7 @@ export default function ReportsPage() {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
-              <span className="text-sm text-gray-500 dark:text-gray-400">{reports.length}</span>
+              <span className="text-sm text-gray-500 dark:text-gray-300">{reports.length}</span>
             </div>
 
             <div className="space-y-3 max-h-[600px] overflow-y-auto">
@@ -198,8 +198,8 @@ export default function ReportsPage() {
                         {statusLabels[r.status] || r.status}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">{r.description}</p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{r.description}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {new Date(r.created_at).toLocaleDateString()}
                     </p>
                   </button>
@@ -216,7 +216,7 @@ export default function ReportsPage() {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 capitalize">{selectedReport.category}</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-sm text-gray-500 dark:text-gray-300">
                       {new Date(selectedReport.created_at).toLocaleString()} &middot; Lat {selectedReport.latitude.toFixed(4)} &middot; Lng {selectedReport.longitude.toFixed(4)}
                     </p>
                   </div>

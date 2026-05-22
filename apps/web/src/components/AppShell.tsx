@@ -2,12 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import SeismicAlertWrapper from "@/components/SeismicAlertWrapper";
 import ChatWrapper from "@/components/chatbot/ChatWrapper";
-import { Badge, Button, Tooltip } from "@/components/ui";
+import { Badge, Button, Tooltip, Drawer } from "@/components/ui";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -43,6 +43,7 @@ export default function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const { user, loading, logout } = useAuth();
   const { nightMode, toggleNightMode, demoMode, toggleDemoMode } = useTheme();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const visibleItems = useMemo(
     () => NAV_ITEMS.filter((item) => !item.roles || (user && item.roles.includes(user.role))),
@@ -68,6 +69,17 @@ export default function AppShell({ children }: AppShellProps) {
       <header className="sticky top-0 z-[2500] border-b border-gray-200 bg-white/85 backdrop-blur-md dark:border-night-border dark:bg-night-secondary/85">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-6">
+            {!isAuthPath && (
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="inline-flex items-center justify-center rounded-lg p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-night-border lg:hidden"
+                aria-label="Open navigation menu"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            )}
             <Link href="/" className="text-lg font-bold text-primary-700 dark:text-brand-500">
               Urban Pulse
             </Link>
@@ -82,7 +94,7 @@ export default function AppShell({ children }: AppShellProps) {
                       className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
                         active
                           ? "bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
-                          : "text-gray-600 hover:bg-gray-100 hover:text-primary-700 dark:text-gray-300 dark:hover:bg-night-border"
+                          : "text-gray-600 hover:bg-gray-100 hover:text-primary-700 dark:text-gray-200 dark:hover:bg-night-border"
                       }`}
                     >
                       {item.label}
@@ -106,10 +118,10 @@ export default function AppShell({ children }: AppShellProps) {
               <span className="text-sm text-gray-400">Loading...</span>
             ) : user ? (
               <>
-                <span className="hidden text-sm text-gray-500 dark:text-gray-400 md:inline">
+                <span className="hidden text-sm text-gray-500 dark:text-gray-300 md:inline">
                   {user.full_name}
                 </span>
-                <Button variant="ghost" size="sm" onClick={() => logout()} className="text-red-600 dark:text-red-400">
+                <Button variant="ghost" size="sm" onClick={() => logout()} className="text-red-600 dark:text-red-300">
                   Logout
                 </Button>
               </>
@@ -126,7 +138,7 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
         </div>
         {!isAuthPath && breadcrumbs.length > 1 && (
-          <div className="mx-auto hidden max-w-7xl items-center gap-2 px-4 pb-2 text-xs text-gray-400 md:flex">
+          <div className="mx-auto hidden max-w-7xl items-center gap-2 px-4 pb-2 text-xs text-gray-500 md:flex">
             {breadcrumbs.map((crumb, index) => (
               <span key={crumb.href} className="flex items-center gap-2">
                 {index > 0 && <span>/</span>}
@@ -143,6 +155,39 @@ export default function AppShell({ children }: AppShellProps) {
         )}
       </header>
 
+      <Drawer open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} side="left">
+        <div className="flex flex-col gap-1 p-4 pt-6">
+          <div className="mb-4 flex items-center justify-between">
+            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">Navigation</span>
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-night-border"
+              aria-label="Close menu"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          {visibleItems.map((item) => {
+            const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={() => setMobileMenuOpen(false)}
+                className={`rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                  active
+                    ? "bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
+                    : "text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-night-border"
+                }`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </Drawer>
       <main className="[&>div>header]:hidden">{children}</main>
       <SeismicAlertWrapper />
       <ChatWrapper />

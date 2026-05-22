@@ -1,12 +1,11 @@
-**/node_modules
 **/.next
 **/__pycache__
 **/*.pyc
 .git
 **/.venv
 **/*.egg-info
-**/dist
-**/build
+packages/*/dist
+packages/*/build
 **/.git
 .cph
 .editorconfig

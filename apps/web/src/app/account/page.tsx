@@ -54,7 +54,7 @@ function AccountContent() {
       <main className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Account</h1>
-          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">You are currently on the <strong>{PLAN_FEATURES[currentPlan].label}</strong> plan.</p>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">You are currently on the <strong>{PLAN_FEATURES[currentPlan].label}</strong> plan.</p>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {PLAN_ORDER.map((planKey) => {
@@ -69,7 +69,7 @@ function AccountContent() {
                   <p className="text-3xl font-bold mt-2">{plan.price}</p>
                   <ul className="mt-4 space-y-2">
                     {plan.features.map((f) => (
-                      <li key={f} className="text-sm text-gray-600 flex items-center gap-2 dark:text-gray-400">
+                      <li key={f} className="text-sm text-gray-600 flex items-center gap-2 dark:text-gray-300">
                         <span className="text-green-500">&#10003;</span> {f}
                       </li>
                     ))}
@@ -100,7 +100,7 @@ function AccountContent() {
 
           <Card id="coupon-section" className="mt-6">
             <h3 className="text-lg font-semibold mb-2">Have a coupon?</h3>
-            <p className="text-sm text-gray-600 mb-3 dark:text-gray-400">Enter your coupon code to upgrade your plan.</p>
+            <p className="text-sm text-gray-600 mb-3 dark:text-gray-300">Enter your coupon code to upgrade your plan.</p>
             {couponMsg && (
               <div className={`mb-3 px-4 py-2 rounded-lg text-sm ${
                 couponMsg.type === "success"

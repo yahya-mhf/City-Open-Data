@@ -351,14 +351,14 @@ export default function CorrelationsPage() {
                         <XAxis
                           dataKey="a_value"
                           name={formatMetricName(selectedPair.a)}
-                          tick={{ fontSize: 10, fill: nightMode ? "#9ca3af" : "#6b7280" }}
-                          label={{ value: formatMetricName(selectedPair.a), position: "bottom", fontSize: 10, fill: nightMode ? "#9ca3af" : "#6b7280" }}
+                          tick={{ fontSize: 10, fill: nightMode ? "#d1d5db" : "#6b7280" }}
+                          label={{ value: formatMetricName(selectedPair.a), position: "bottom", fontSize: 10, fill: nightMode ? "#d1d5db" : "#6b7280" }}
                         />
                         <YAxis
                           dataKey="b_value"
                           name={formatMetricName(selectedPair.b)}
-                          tick={{ fontSize: 10, fill: nightMode ? "#9ca3af" : "#6b7280" }}
-                          label={{ value: formatMetricName(selectedPair.b), angle: -90, position: "insideLeft", fontSize: 10, fill: nightMode ? "#9ca3af" : "#6b7280" }}
+                          tick={{ fontSize: 10, fill: nightMode ? "#d1d5db" : "#6b7280" }}
+                          label={{ value: formatMetricName(selectedPair.b), angle: -90, position: "insideLeft", fontSize: 10, fill: nightMode ? "#d1d5db" : "#6b7280" }}
                         />
                         <Tooltip contentStyle={tooltipContentStyle} cursor={{ strokeDasharray: "3 3" }} />
                         <Scatter data={scatterData} fill="#2563eb" />

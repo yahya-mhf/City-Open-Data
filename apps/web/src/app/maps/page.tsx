@@ -42,10 +42,10 @@ export default function MapsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <header className="bg-white shadow-sm border-b">
+    <div className="min-h-screen bg-gray-50 dark:bg-night-primary flex flex-col">
+      <header className="bg-white dark:bg-night-secondary shadow-sm border-b dark:border-night-border">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-primary-700">Thematic Maps</h1>
+          <h1 className="text-2xl font-bold text-primary-700 dark:text-brand-500">Thematic Maps</h1>
           <nav className="flex gap-4">
             <button
               onClick={toggleNightMode}
@@ -54,11 +54,11 @@ export default function MapsPage() {
             >
               {nightMode ? "\u2600\uFE0F" : "\uD83C\uDF19"}
             </button>
-            <Link href="/maps/future" className="text-gray-600 hover:text-primary-600">Future City</Link>
-            <Link href="/dashboard" className="text-gray-600 hover:text-primary-600">Dashboard</Link>
-            <Link href="/map" className="text-gray-600 hover:text-primary-600">Sensor Map</Link>
-            <Link href="/developer" className="text-gray-600 hover:text-primary-600">Developer</Link>
-            <Link href="/" className="text-gray-600 hover:text-primary-600">Home</Link>
+            <Link href="/maps/future" className="text-gray-600 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400">Future City</Link>
+            <Link href="/dashboard" className="text-gray-600 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400">Dashboard</Link>
+            <Link href="/map" className="text-gray-600 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400">Sensor Map</Link>
+            <Link href="/developer" className="text-gray-600 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400">Developer</Link>
+            <Link href="/" className="text-gray-600 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400">Home</Link>
           </nav>
         </div>
       </header>
@@ -82,7 +82,7 @@ export default function MapsPage() {
                 </div>
                 <div className="flex-1">
                   <h3 className="text-xl font-bold text-primary-800">Future City Overview</h3>
-                  <p className="text-sm text-gray-600 mt-1">
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                     AI-powered intelligence across all metrics. View opportunities, risks, and insights generated
                     from live sensor data in real time.
                   </p>
@@ -93,7 +93,7 @@ export default function MapsPage() {
               </div>
             </Link>
 
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Individual Metric Maps</h2>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">Individual Metric Maps</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {metrics.map((m) => {
               const borderColor = categoryColors[m.category] || "bg-gray-50 border-gray-200";

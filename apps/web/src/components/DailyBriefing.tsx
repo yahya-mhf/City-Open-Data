@@ -123,7 +123,7 @@ export default function DailyBriefing() {
                   </span>
                 )}
                 <AiStatusBadge state={briefing} />
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-500 dark:text-gray-400">
                   {new Date(briefing.generated_at).toLocaleString()}
                 </span>
                 {canRegenerate && (

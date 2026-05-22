@@ -64,7 +64,7 @@ function DeveloperContent() {
       <div className="flex min-h-[24rem] items-center justify-center">
         <Card className="max-w-md text-center">
           <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Login required</h1>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">API key management is available after login.</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-300">API key management is available after login.</p>
           <Link href="/login" className="mt-4 inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white">Login</Link>
         </Card>
       </div>
@@ -76,7 +76,7 @@ function DeveloperContent() {
       <main className="mx-auto max-w-7xl px-4 py-8">
         <Card className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Developer Portal</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Manage keys for the public `/public/v1` API and test live requests with a full key.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">Manage keys for the public `/public/v1` API and test live requests with a full key.</p>
         </Card>
         <Tabs
           active={activeTab}

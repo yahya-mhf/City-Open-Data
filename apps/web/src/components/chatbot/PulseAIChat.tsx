@@ -83,6 +83,7 @@ export default function PulseAIChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const chatContextRef = useRef(getChatContext());
+  const notifiedAlertIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     return subscribeToChatContext(() => {
@@ -145,8 +146,11 @@ export default function PulseAIChat() {
           try {
             const data = JSON.parse(event.data);
             if (data.type === "alert" || data.message || data.sensor_id) {
+              const alertId = data.id ?? data.sensor_id;
+              if (!alertId || notifiedAlertIdsRef.current.has(alertId)) return;
+              notifiedAlertIdsRef.current.add(alertId);
               const msg: AlertMessage = {
-                id: data.id ?? data.sensor_id,
+                id: alertId,
                 sensor_id: data.sensor_id,
                 severity: data.severity,
                 message: data.message ?? data.data?.message ?? "",
@@ -181,6 +185,12 @@ export default function PulseAIChat() {
 
   useEffect(() => {
     if (open && pendingAlert) {
+      if (!pendingAlert.id || notifiedAlertIdsRef.current.has(pendingAlert.id)) {
+        setPendingAlert(null);
+        setHasAlertNotification(false);
+        return;
+      }
+      notifiedAlertIdsRef.current.add(pendingAlert.id);
       setMessages((prev) => [
         ...prev,
         {
@@ -313,6 +323,7 @@ export default function PulseAIChat() {
     setError("");
     setAiStatus("live");
     setAiReason(null);
+    notifiedAlertIdsRef.current = new Set();
   };
 
   const handleSuggestionClick = (text: string) => {

@@ -60,7 +60,7 @@ export default function Home() {
   const [stats, setStats] = useState<CityStats | null>(null);
   const [health, setHealth] = useState<CityHealthSummary | null>(null);
   const [briefing, setBriefing] = useState<BriefingResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [failedCount, setFailedCount] = useState(0);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -81,11 +81,10 @@ export default function Home() {
         if (healthResult.status === "fulfilled") setHealth(healthResult.value);
         if (briefingResult.status === "fulfilled") setBriefing(briefingResult.value);
         setLastUpdated(new Date());
-        const failed = [markerResult, statsResult, healthResult].filter((result) => result.status === "rejected").length;
-        setError(failed > 0 ? "Some live operations data is unavailable." : null);
-      } catch (err) {
+        setFailedCount([markerResult, statsResult, healthResult].filter((result) => result.status === "rejected").length);
+      } catch {
         if (!active) return;
-        setError(err instanceof Error ? err.message : "Unable to load live operations data");
+        setFailedCount(3);
       }
     };
 
@@ -106,7 +105,7 @@ export default function Home() {
       setBriefing(next);
       setLastUpdated(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to regenerate briefing");
+      setFailedCount(1);
     }
   };
 
@@ -124,38 +123,44 @@ export default function Home() {
 
         <div className="relative z-10 flex min-h-[calc(100vh-5.5rem)] flex-col justify-between px-4 py-6 sm:px-6 lg:px-10">
           <div className="flex items-start justify-between gap-4">
-            <Card className="max-w-md border-white/15 bg-black/45 p-5 text-white shadow-2xl backdrop-blur-xl dark:border-white/15 dark:bg-black/45">
-              <div className="mb-5 flex items-start justify-between gap-4">
+            <Card className="max-w-md border-gray-200 bg-white/95 p-5 shadow-xl backdrop-blur dark:border-night-border dark:bg-night-secondary/95">
+              <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-200">Marrakech Live Operations</p>
-                  <h1 className="mt-2 text-3xl font-bold text-white">Urban Pulse</h1>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-primary-600 dark:text-primary-400">Marrakech Live Operations</p>
+                  <h1 className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">Urban Pulse</h1>
+                  {failedCount === 0 && (
+                    <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{formatFreshness(markerFreshness ?? stats?.timestamp)}</p>
+                  )}
                 </div>
-                <Badge tone={error ? "danger" : "success"}>{error ? "Degraded" : "Live"}</Badge>
+                <Badge tone={failedCount > 0 ? "danger" : "success"}>{failedCount > 0 ? "Degraded" : "Live"}</Badge>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
-                <div className="rounded-lg border border-white/10 bg-white/10 p-3">
-                  <p className="text-xs text-white/60">Sensors</p>
-                  <p className="mt-1 text-2xl font-semibold">{stats ? activeSensors : <Skeleton className="h-7 w-12 bg-white/20" />}</p>
-                  <p className="mt-2 text-[11px] text-white/50">{formatFreshness(markerFreshness ?? stats?.timestamp)}</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-night-border dark:bg-night-border/30">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Active Readings</p>
+                  <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">{stats ? activeSensors.toLocaleString() : <Skeleton className="h-8 w-16 bg-gray-200 dark:bg-night-border" />}</p>
+                  <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Sensors online</p>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-white/10 p-3">
-                  <p className="text-xs text-white/60">Alerts</p>
-                  <p className="mt-1 text-2xl font-semibold text-amber-300">{stats ? activeAlerts : <Skeleton className="h-7 w-12 bg-white/20" />}</p>
-                  <p className="mt-2 text-[11px] text-white/50">{formatFreshness(stats?.timestamp)}</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-night-border dark:bg-night-border/30">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Active Alerts</p>
+                  <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">{stats ? activeAlerts.toLocaleString() : <Skeleton className="h-8 w-16 bg-gray-200 dark:bg-night-border" />}</p>
+                  <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">Requiring attention</p>
                 </div>
-                <div className="rounded-lg border border-white/10 bg-white/10 p-3">
-                  <p className="text-xs text-white/60">AQI</p>
-                  <p className="mt-1 text-2xl font-semibold">{aqiScore !== undefined && aqiScore !== null ? Math.round(aqiScore) : <Skeleton className="h-7 w-12 bg-white/20" />}</p>
-                  <p className="mt-2 text-[11px] text-white/50">{formatFreshness(health?.updated_at)}</p>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-night-border dark:bg-night-border/30">
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Air Quality</p>
+                  <p className="mt-1 text-3xl font-bold text-gray-900 dark:text-white">{aqiScore !== undefined && aqiScore !== null ? Math.round(aqiScore) : <Skeleton className="h-8 w-16 bg-gray-200 dark:bg-night-border" />}</p>
+                  <p className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">AQI index</p>
                 </div>
               </div>
 
-              {error && <p className="mt-4 text-sm text-red-200">{error}</p>}
-
-              <Link href="/map" className="mt-5 inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600">
-                Open Operations View
-              </Link>
+              <div className="mt-4 flex items-center justify-between gap-3">
+                <Link href="/map" className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-700">
+                  Open Operations View
+                </Link>
+                {failedCount > 0 && (
+                  <span className="text-xs text-red-600 dark:text-red-400">Some data unavailable</span>
+                )}
+              </div>
             </Card>
 
             <div className="hidden flex-wrap justify-end gap-2 md:flex">
@@ -188,21 +193,25 @@ export default function Home() {
                   )}
                 </div>
               </div>
-              {briefing?.available ? (
-                <div className="space-y-2 text-sm leading-6 text-white/80">
+              {briefing?.available && briefing.paragraphs?.length ? (
+                <div className="space-y-2 text-sm leading-6 text-gray-700 dark:text-gray-300">
                   {briefing.paragraphs.slice(0, 2).map((paragraph) => (
                     <p key={paragraph}>{paragraph}</p>
                   ))}
                 </div>
+              ) : briefing?.available && (!briefing.paragraphs?.length) ? (
+                <p className="text-sm leading-6 text-gray-500 dark:text-gray-400">
+                  Briefing will be generated at 06:00 each morning.
+                </p>
               ) : briefing && !briefing.available ? (
-                <p className="text-sm leading-6 text-red-200">
+                <p className="text-sm leading-6 text-red-600 dark:text-red-400">
                   AI briefing unavailable: {briefing.reason ?? "Groq not configured"}.
                 </p>
               ) : (
                 <div className="space-y-2">
-                  <Skeleton className="h-4 w-full bg-white/20" />
-                  <Skeleton className="h-4 w-5/6 bg-white/20" />
-                  <Skeleton className="h-4 w-2/3 bg-white/20" />
+                  <Skeleton className="h-4 w-full bg-gray-200 dark:bg-night-border" />
+                  <Skeleton className="h-4 w-5/6 bg-gray-200 dark:bg-night-border" />
+                  <Skeleton className="h-4 w-2/3 bg-gray-200 dark:bg-night-border" />
                 </div>
               )}
             </Card>

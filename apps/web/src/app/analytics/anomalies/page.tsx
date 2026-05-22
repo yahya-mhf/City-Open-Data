@@ -79,7 +79,7 @@ export default function AnomaliesPage() {
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Anomalies</h1>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Unusual sensor readings detected by z-score and statistical methods.</p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">Unusual sensor readings detected by z-score and statistical methods.</p>
             </div>
             <div className="grid gap-2 sm:grid-cols-4">
               <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search" />
@@ -132,7 +132,7 @@ export default function AnomaliesPage() {
                         <div className="text-xs text-gray-500">{row.sensor_type.replace(/_/g, " ")}</div>
                       </td>
                       <td className="px-4 py-3">{row.metric_name || row.metric_key}</td>
-                      <td className="px-4 py-3 text-gray-400">Recorded in event stream</td>
+                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400">Recorded in event stream</td>
                       <td className="px-4 py-3"><Badge tone={severityTone(severityValue)}>{row.z_score.toFixed(2)}</Badge></td>
                       <td className="px-4 py-3">{row.method}</td>
                       <td className="px-4 py-3 text-gray-500">{new Date(row.time).toLocaleString()}</td>

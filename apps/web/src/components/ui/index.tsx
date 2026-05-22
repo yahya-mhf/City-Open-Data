@@ -68,8 +68,8 @@ export function Button({ variant = "primary", size = "md", className, ...props }
         size === "md" && "px-4 py-2 text-sm",
         size === "icon" && "h-9 w-9 p-0 text-sm",
         variant === "primary" && "bg-primary-600 text-white hover:bg-primary-700 dark:bg-primary-500 dark:hover:bg-primary-600",
-        variant === "secondary" && "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-night-border dark:bg-night-secondary dark:text-gray-200 dark:hover:bg-night-border",
-        variant === "ghost" && "text-gray-600 hover:bg-gray-100 hover:text-primary-700 dark:text-gray-300 dark:hover:bg-night-border dark:hover:text-gray-100",
+        variant === "secondary" && "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-night-border dark:bg-night-secondary dark:text-gray-100 dark:hover:bg-night-border",
+        variant === "ghost" && "text-gray-600 hover:bg-gray-100 hover:text-primary-700 dark:text-gray-200 dark:hover:bg-night-border dark:hover:text-gray-100",
         variant === "danger" && "bg-red-600 text-white hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600",
         className,
       )}
@@ -83,12 +83,12 @@ export function Badge({ children, tone = "default", className }: BadgeProps) {
     <span
       className={clsx(
         "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-        tone === "default" && "bg-gray-100 text-gray-700 dark:bg-night-border dark:text-gray-300",
-        tone === "success" && "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-        tone === "warning" && "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+        tone === "default" && "bg-gray-100 text-gray-700 dark:bg-night-border dark:text-gray-200",
+        tone === "success" && "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+        tone === "warning" && "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
         tone === "amber" && "bg-amber-500 text-white dark:bg-amber-500 dark:text-white",
-        tone === "danger" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
-        tone === "info" && "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+        tone === "danger" && "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+        tone === "info" && "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
         className,
       )}
     >
@@ -114,7 +114,7 @@ export function Input({ invalid, className, ...props }: FieldProps) {
   return (
     <input
       className={clsx(
-        "w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 dark:bg-night-primary dark:text-gray-100",
+        "w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 dark:bg-night-primary dark:text-gray-100 dark:placeholder:text-gray-500",
         invalid ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900/30" : "border-gray-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-night-border dark:focus:ring-primary-900/30",
         className,
       )}
@@ -140,7 +140,7 @@ export function Textarea({ invalid, className, ...props }: TextareaProps) {
   return (
     <textarea
       className={clsx(
-        "w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 dark:bg-night-primary dark:text-gray-100",
+        "w-full rounded-lg border bg-white px-3 py-2 text-sm text-gray-900 outline-none transition placeholder:text-gray-400 dark:bg-night-primary dark:text-gray-100 dark:placeholder:text-gray-500",
         invalid ? "border-red-400 focus:border-red-500 focus:ring-2 focus:ring-red-100 dark:focus:ring-red-900/30" : "border-gray-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 dark:border-night-border dark:focus:ring-primary-900/30",
         className,
       )}
@@ -162,7 +162,7 @@ export function Tabs({ tabs, active, onChange }: TabsProps) {
             "px-4 py-2 text-sm font-medium transition",
             active === tab.id
               ? "border-b-2 border-primary-600 text-primary-600 dark:text-primary-400"
-              : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200",
+              : "text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100",
           )}
         >
           {tab.label}

@@ -65,7 +65,7 @@ export default function MyReportsPage() {
       <div className="flex min-h-[24rem] items-center justify-center">
         <Card className="max-w-md text-center">
           <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Login required</h1>
-          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">You need to log in to view your reports.</p>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-300">You need to log in to view your reports.</p>
           <Link href="/login" className="mt-4 inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white">Login</Link>
         </Card>
       </div>
@@ -79,7 +79,7 @@ export default function MyReportsPage() {
       <main className="mx-auto max-w-7xl px-4 py-8">
         <Card className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Reports</h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Track your submitted reports, status changes, and locations.</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-300">Track your submitted reports, status changes, and locations.</p>
         </Card>
 
         {reports.length === 0 ? (
@@ -97,13 +97,13 @@ export default function MyReportsPage() {
                           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{report.category.replace(/_/g, " ")}</h2>
                           <Badge tone={statusTone(report.status)}>{report.status.replace(/_/g, " ")}</Badge>
                         </div>
-                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{report.description}</p>
-                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">{new Date(report.created_at).toLocaleString()} · {report.latitude.toFixed(5)}, {report.longitude.toFixed(5)}</p>
+                        <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{report.description}</p>
+                        <p className="mt-2 text-xs text-gray-500 dark:text-gray-300">{new Date(report.created_at).toLocaleString()} · {report.latitude.toFixed(5)}, {report.longitude.toFixed(5)}</p>
                       </div>
                     </div>
                     <div className="mt-4 grid grid-cols-3 gap-2">
                       {TIMELINE.map((step, index) => (
-                        <div key={step} className={`rounded-lg px-3 py-2 text-center text-xs font-medium ${index <= currentIndex ? "bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300" : "bg-gray-100 text-gray-400 dark:bg-night-border"}`}>
+                        <div key={step} className={`rounded-lg px-3 py-2 text-center text-xs font-medium ${index <= currentIndex ? "bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300" : "bg-gray-100 text-gray-400 dark:bg-night-border dark:text-gray-500"}`}>
                           {step.replace(/_/g, " ")}
                         </div>
                       ))}

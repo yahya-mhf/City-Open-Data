@@ -2,10 +2,12 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 COPY apps/web/package*.json ./
-RUN npm install
+COPY apps/web/node_modules ./node_modules
+RUN npm rebuild
+
 COPY apps/web/ .
 
-RUN npm run build
+RUN node ./node_modules/next/dist/bin/next build
 
 FROM node:20-alpine AS runner
 WORKDIR /app

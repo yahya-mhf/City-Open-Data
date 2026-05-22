@@ -249,7 +249,7 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
               {s.name}
             </label>
           ))}
-          {sensors.length === 0 && <p className="text-gray-400 text-sm">No sensors available</p>}
+          {sensors.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-sm">No sensors available</p>}
         </div>
       </fieldset>
 
@@ -282,7 +282,7 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
               {m.display_name} ({m.unit})
             </label>
           ))}
-          {metrics.length === 0 && <p className="text-gray-400 text-sm">No metrics available</p>}
+          {metrics.length === 0 && <p className="text-gray-500 dark:text-gray-400 text-sm">No metrics available</p>}
         </div>
       </fieldset>
 
@@ -345,7 +345,7 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
       {/* Record count preview */}
       <div className="bg-gray-50 dark:bg-night-border/30 rounded-lg px-4 py-3">
         <div className="flex items-center justify-between text-sm">
-          <span className="text-gray-600 dark:text-gray-400">Estimated records</span>
+          <span className="text-gray-600 dark:text-gray-300">Estimated records</span>
           <span className="font-mono font-medium text-gray-900 dark:text-gray-100">
             {previewLoading ? (
               <span className="text-gray-400 animate-pulse">Counting...</span>
@@ -357,7 +357,7 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
           </span>
         </div>
         {preview && (
-          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-300 mt-1">
             <span>Daily usage</span>
             <span className={preview.daily_remaining < 100 ? "text-amber-500 font-medium" : ""}>
               {preview.daily_used.toLocaleString()} / {preview.daily_limit.toLocaleString()} rows
@@ -381,14 +381,14 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
         {exporting ? "Exporting..." : "Download Export"}
       </button>
 
-      {error && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 rounded-lg px-4 py-3 text-sm">{error}</div>}
+      {error && <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 rounded-lg px-4 py-3 text-sm">{error}</div>}
 
       {/* Export history */}
       {history.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">Export History</h3>
-            <button onClick={clearHistory} className="text-xs text-gray-500 hover:text-red-600 dark:hover:text-red-400">
+            <button onClick={clearHistory} className="text-xs text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-300">
               Clear
             </button>
           </div>
@@ -398,8 +398,8 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
                 key={item.id}
                 className={`flex items-center justify-between text-xs px-3 py-2 rounded ${
                   item.status === "success"
-                    ? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-400"
-                    : "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-400"
+                    ? "bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300"
+                    : "bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-300"
                 }`}
               >
                 <span className="truncate flex-1">

@@ -27,10 +27,10 @@ interface HealthData {
 
 function statusColor(status: string): string {
   switch (status) {
-    case "good": return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 border-green-200 dark:border-green-800";
-    case "moderate": return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-amber-200 dark:border-amber-800";
-    case "critical": return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800";
-    default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400";
+    case "good": return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800";
+    case "moderate": return "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800";
+    case "critical": return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border-red-200 dark:border-red-800";
+    default: return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
   }
 }
 
@@ -46,7 +46,7 @@ function trendColor(trend: string | null, status: string): string {
   if (status === "critical") {
     return trend === "up" ? "text-green-500" : "text-red-500";
   }
-  return trend === "up" ? "text-green-500" : trend === "down" ? "text-red-500" : "text-gray-400";
+  return trend === "up" ? "text-green-500" : trend === "down" ? "text-red-500" : "text-gray-400 dark:text-gray-500";
 }
 
 function sparkColor(status: string, nightMode: boolean): string {
@@ -137,7 +137,7 @@ export default function CityHealth() {
                     </span>
                   )}
                 </div>
-                <div className="text-[10px] text-gray-400 dark:text-gray-500 mb-2">
+                <div className="text-[10px] text-gray-500 dark:text-gray-400 mb-2">
                   {card.previous_score !== null ? `vs yesterday: ${card.previous_score.toFixed(1)}` : "data unavailable"}
                 </div>
                 {chartData.length > 0 && (

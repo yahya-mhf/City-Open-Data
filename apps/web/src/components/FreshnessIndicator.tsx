@@ -6,13 +6,13 @@ interface FreshnessIndicatorProps {
 }
 
 function freshness(timestamp?: string | Date | null): { text: string; tone: string } {
-  if (!timestamp) return { text: "No timestamp", tone: "text-red-600 dark:text-red-400" };
+  if (!timestamp) return { text: "No timestamp", tone: "text-red-600 dark:text-red-300" };
   const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
   const seconds = Math.max(0, Math.floor((Date.now() - date.getTime()) / 1000));
-  if (seconds < 30) return { text: `Updated ${seconds}s ago`, tone: "text-green-600 dark:text-green-400" };
-  if (seconds < 120) return { text: `Updated ${seconds}s ago`, tone: "text-amber-600 dark:text-amber-400" };
+  if (seconds < 30) return { text: `Updated ${seconds}s ago`, tone: "text-green-600 dark:text-green-300" };
+  if (seconds < 120) return { text: `Updated ${seconds}s ago`, tone: "text-amber-600 dark:text-amber-300" };
   const minutes = Math.floor(seconds / 60);
-  return { text: `Updated ${minutes}m ago`, tone: "text-red-600 dark:text-red-400" };
+  return { text: `Updated ${minutes}m ago`, tone: "text-red-600 dark:text-red-300" };
 }
 
 export default function FreshnessIndicator({ timestamp, label = "Data" }: FreshnessIndicatorProps) {
