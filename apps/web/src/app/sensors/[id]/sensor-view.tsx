@@ -107,15 +107,15 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
       window.location.href = "/login";
       return;
     }
-    if (!reportCategory || !reportDesc.trim()) return;
+    if (!sensor || !reportCategory || !reportDesc.trim()) return;
     setSubmitting(true);
     setReportMsg("");
     try {
       const formData = new FormData();
       formData.append("category", reportCategory);
       formData.append("description", reportDesc);
-      formData.append("latitude", "0");
-      formData.append("longitude", "0");
+      formData.append("latitude", String(sensor.latitude));
+      formData.append("longitude", String(sensor.longitude));
       await api.reports.create(formData, t);
       setReportMsg("Report submitted.");
       setReportForm(false);

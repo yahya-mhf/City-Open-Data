@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**7 / 28 tasks complete**
+**8 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -79,7 +79,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Data freshness timestamp on every stat
   - Clear CTA for operators: "Open Operations View" → `/map`
 
-- ❌ **R2.3** Redesign the main `/map` page
+- ✅ **R2.3** Redesign the main `/map` page
   - This is the operational center — treat it like a control room
   - Left sidebar: sensor list with status indicators, search/filter by type/status/metric
   - Map center: live MapLibre with GeoJSON layers, cluster mode, pulse animations
@@ -206,6 +206,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
 - R2.1: Added shared UI primitives and migrated the global shell, page states, dashboard, account, report submission form, and demo badge to the shared Button/Badge/Card/Input/Select/Textarea/Tooltip patterns with dark-mode states. `npx tsc --noEmit` passes. `ruff check .` and `poetry run ruff check .` could not run because Ruff is not installed/available in the local Poetry environment. `npm run lint` opens the deprecated Next.js ESLint setup prompt because ESLint has not been configured.
 - R2.2: Rebuilt `/` as an operations-first live map screen. `HeroMap` now renders real sensor locations from `/api/v1/map/markers`, the first viewport shows live Sensors/Alerts/AQI KPIs with freshness text, the daily briefing is compact at bottom-left, and operator quick links plus "Open Operations View" route to `/map`. `npx tsc --noEmit` passes.
+- R2.3: Reworked `/map` into an operations layout with top freshness/alert/layer controls, a sensor fleet sidebar, search plus status/type/metric filters, and filtered MapLibre sensor layers feeding the existing drawer click flow. Fixed sensor report submissions from `/sensors/[id]` to use the sensor's real coordinates instead of `0,0`. `npx tsc --noEmit` passes.
 
 ---
 
