@@ -1,11 +1,14 @@
 import asyncio
 from contextlib import asynccontextmanager
 
+import aio_pika
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 from prometheus_client import make_asgi_app
 
+from smart_city_database import engine
 from smart_city_shared.config import settings
 from smart_city_observability import setup_logging
 
@@ -72,7 +75,31 @@ async def health():
 
 @app.get("/ready")
 async def ready():
-    return {"status": "ready"}
+    db_ok = False
+    redis_ok = False
+    rabbitmq_ok = False
+
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        db_ok = False
+
+    try:
+        redis_ok = bool(redis_manager.client and await redis_manager.client.ping())
+    except Exception:
+        redis_ok = False
+
+    try:
+        connection = await aio_pika.connect_robust(settings.RABBITMQ_URL, timeout=2)
+        await connection.close()
+        rabbitmq_ok = True
+    except Exception:
+        rabbitmq_ok = False
+
+    overall = db_ok and redis_ok and rabbitmq_ok
+    return {"db": db_ok, "redis": redis_ok, "rabbitmq": rabbitmq_ok, "overall": overall}
 
 
 CITY_HEALTH_CACHE_KEY = "city_health"
