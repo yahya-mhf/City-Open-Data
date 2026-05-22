@@ -27,28 +27,30 @@ class ConnectionManager:
         elif channel == "reports":
             self.report_connections.append(websocket)
 
-    def disconnect(self, websocket: WebSocket, channel: str) -> None:
+    def connections_for(self, channel: str) -> list[WebSocket]:
         if channel == "sensors":
-            self.sensor_connections.remove(websocket)
-        elif channel == "alerts":
-            self.alert_connections.remove(websocket)
-        elif channel == "reports":
-            self.report_connections.remove(websocket)
+            return self.sensor_connections
+        if channel == "alerts":
+            return self.alert_connections
+        if channel == "reports":
+            return self.report_connections
+        return []
+
+    def disconnect(self, websocket: WebSocket, channel: str) -> None:
+        connections = self.connections_for(channel)
+        if websocket in connections:
+            connections.remove(websocket)
 
     async def broadcast(self, message: dict[str, Any], channel: str) -> None:
-        connections = []
-        if channel == "sensors":
-            connections = self.sensor_connections
-        elif channel == "alerts":
-            connections = self.alert_connections
-        elif channel == "reports":
-            connections = self.report_connections
-
-        for connection in connections:
+        stale_connections = []
+        connections = self.connections_for(channel)
+        for connection in list(connections):
             try:
                 await connection.send_json(message)
             except Exception:
-                pass
+                stale_connections.append(connection)
+        for connection in stale_connections:
+            self.disconnect(connection, channel)
 
 
 manager = ConnectionManager()
@@ -60,7 +62,6 @@ async def redis_subscriber() -> None:
     pubsub = redis_manager.client.pubsub()
     await pubsub.psubscribe("__keyspace@0__:*")
 
-    # Also subscribe to seismic_events channel
     await pubsub.subscribe("seismic_events")
 
     async for message in pubsub.listen():
