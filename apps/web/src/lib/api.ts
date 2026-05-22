@@ -250,6 +250,8 @@ export const api = {
       fetchApi<{ id: string; name: string; description?: string | null; key: string; tier: string; rate_limit: number; created_at: string }>("/developer/keys", { method: "POST", body: JSON.stringify({ name }), token }),
     delete: (id: string, token: string) =>
       fetchApi(`/developer/keys/${id}`, { method: "DELETE", token }),
+    usage: (id: string, token: string) =>
+      fetchApi<{ requests_today: number; requests_this_week: number; by_endpoint: Record<string, number>; avg_response_time_ms: number | null; error_rate: number }>(`/developer/keys/${id}/usage`, { token }),
   },
   admin: {
     sensors: {

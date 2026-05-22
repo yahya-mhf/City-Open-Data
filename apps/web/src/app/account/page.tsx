@@ -1,28 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { api } from "@/lib/api";
-import { EmptyState, PageLoader } from "@/components/PageState";
+import { PageLoader } from "@/components/PageState";
 import { Badge, Button, Card, Input } from "@/components/ui";
-
-interface ApiKeyItem {
-  id: string;
-  name: string;
-  key_prefix: string;
-  rate_limit: number;
-  is_active: boolean;
-  created_at: string;
-}
-
-interface NewApiKey {
-  id: string;
-  name: string;
-  key: string;
-  rate_limit: number;
-  created_at: string;
-}
 
 const PLAN_FEATURES: Record<string, { label: string; price: string; features: string[] }> = {
   free: {
@@ -46,44 +29,9 @@ const PLAN_ORDER = ["free", "pro", "enterprise"];
 
 function AccountContent() {
   const { user, token, loading, refreshUser } = useAuth();
-  const [apiKeys, setApiKeys] = useState<ApiKeyItem[]>([]);
-  const [newKey, setNewKey] = useState<NewApiKey | null>(null);
-  const [keyName, setKeyName] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [error, setError] = useState("");
   const [couponCode, setCouponCode] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [couponMsg, setCouponMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
-
-  useEffect(() => {
-    if (!token) return;
-    api.apiKeys.list(token).then(setApiKeys).catch((err) => setError(err instanceof Error ? err.message : "Failed to load API keys"));
-  }, [token]);
-
-  const createKey = async () => {
-    if (!token || !keyName.trim()) return;
-    setCreating(true);
-    setError("");
-    try {
-      const key = await api.apiKeys.create(keyName.trim(), token);
-      setNewKey(key);
-      setKeyName("");
-      setApiKeys((prev) => [...prev, { id: key.id, name: key.name, key_prefix: key.key.slice(0, 8), rate_limit: key.rate_limit, is_active: true, created_at: key.created_at }]);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to create API key");
-    }
-    setCreating(false);
-  };
-
-  const deleteKey = async (id: string) => {
-    if (!token) return;
-    try {
-      await api.apiKeys.delete(id, token);
-      setApiKeys((prev) => prev.filter((k) => k.id !== id));
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to delete API key");
-    }
-  };
 
   if (loading) {
     return <PageLoader message="Loading account..." />;
@@ -194,81 +142,12 @@ function AccountContent() {
             </div>
           </Card>
         </div>
-
         <Card>
-          <h2 className="text-xl font-semibold mb-4">API Keys</h2>
-
-          {!isPaid && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4 text-sm text-yellow-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300">
-              API key management is available on Pro and Enterprise plans.
-            </div>
-          )}
-
-          {newKey && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4 dark:bg-blue-900/20 dark:border-blue-800">
-              <p className="text-sm font-medium text-blue-800 dark:text-blue-300">API Key Created</p>
-              <p className="text-sm text-blue-700 mt-1 dark:text-blue-300">Make sure to copy your key now. You won&apos;t be able to see it again.</p>
-              <div className="mt-2 rounded-lg border bg-white p-2 font-mono text-sm break-all select-all dark:border-night-border dark:bg-night-primary">{newKey.key}</div>
-              <button onClick={() => { setNewKey(null); navigator.clipboard?.writeText(newKey.key); }} className="mt-2 text-xs text-blue-600 hover:text-blue-800 dark:text-blue-300">
-                Copied! Dismiss
-              </button>
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-sm text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300">{error}</div>
-          )}
-
-          <div className="flex gap-2 mb-6">
-            <Input
-              type="text"
-              value={keyName}
-              onChange={(e) => setKeyName(e.target.value)}
-              placeholder="Key name (e.g. My App)"
-              disabled={!isPaid || creating}
-              className="flex-1"
-              onKeyDown={(e) => e.key === "Enter" && createKey()}
-            />
-            <Button
-              onClick={createKey}
-              disabled={!isPaid || creating || !keyName.trim()}
-            >
-              {creating ? "Creating..." : "Create Key"}
-            </Button>
-          </div>
-
-          {apiKeys.length === 0 ? (
-            <EmptyState message="Create an API key from a paid plan to access public Urban Pulse endpoints." />
-          ) : (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-gray-500">
-                  <th className="pb-2 font-medium">Name</th>
-                  <th className="pb-2 font-medium">Key Prefix</th>
-                  <th className="pb-2 font-medium">Rate Limit</th>
-                  <th className="pb-2 font-medium">Status</th>
-                  <th className="pb-2 font-medium">Created</th>
-                  <th className="pb-2 font-medium"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {apiKeys.map((k) => (
-                  <tr key={k.id} className="border-b">
-                    <td className="py-2">{k.name}</td>
-                    <td className="py-2 font-mono text-xs">{k.key_prefix}...</td>
-                    <td className="py-2">{k.rate_limit}/min</td>
-                    <td className="py-2">
-                      <Badge tone={k.is_active ? "success" : "danger"}>{k.is_active ? "Active" : "Inactive"}</Badge>
-                    </td>
-                    <td className="py-2">{new Date(k.created_at).toLocaleDateString()}</td>
-                    <td className="py-2">
-                      <Button variant="ghost" size="sm" onClick={() => deleteKey(k.id)} className="text-red-600 dark:text-red-400">Revoke</Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+          <h2 className="text-xl font-semibold mb-2">Developer API</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400">API key management, public API docs, usage charts, and live testing are consolidated in the developer portal.</p>
+          <Link href="/developer" className="mt-4 inline-flex rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700">
+            Open Developer Portal
+          </Link>
         </Card>
       </main>
     </div>

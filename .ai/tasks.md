@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**10 / 28 tasks complete**
+**11 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -105,7 +105,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Reports: status workflow with filter
   - Show explicit permission denied state when API returns 403
 
-- ❌ **R2.6** Redesign developer portal `/developer`
+- ✅ **R2.6** Redesign developer portal `/developer`
   - Tabs: API Keys / Usage / Documentation / Live Tester
   - API Keys: list with tier badge, created date, last used, copy full key (shown once on creation), revoke
   - Usage: charts from correct endpoint `/api/v1/developer/keys/{id}/usage` with correct response shape
@@ -209,6 +209,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R2.3: Reworked `/map` into an operations layout with top freshness/alert/layer controls, a sensor fleet sidebar, search plus status/type/metric filters, and filtered MapLibre sensor layers feeding the existing drawer click flow. Fixed sensor report submissions from `/sensors/[id]` to use the sensor's real coordinates instead of `0,0`. `npx tsc --noEmit` passes.
 - R2.4: Updated `/sensors/[id]` with a proper sensor header, type/status badges, coordinates, last-seen metadata, recent alerts, real report coordinates, mini map, QR section, and existing real charts. Removed `ScenarioSimulator` from the page. `npx tsc --noEmit` passes.
 - R2.5: Made `/admin` admin-only, added explicit permission denied UI, rebuilt it as a sidebar management console with search/filter/pagination, inline sensor editing, sensor deactivation confirmation, role dropdowns for users, report status workflow, and table views for alerts/reports/hubs. Backend admin now supports sensor patch, sensor soft-delete via inactive status, and user role/plan patch. `npx tsc --noEmit` and `python -m py_compile apps/api/app/api/v1/endpoints/admin.py` pass.
+- R2.6: Rebuilt `/developer` into API Keys, Usage, Documentation, and Live Tester tabs. It uses `/api/v1/developer/keys`, maps usage from `requests_today`, `requests_this_week`, and `by_endpoint`, documents `/public/v1` routes only, and requires a full API key for tester calls. Removed API key management from `/account` and linked to `/developer`. `npx tsc --noEmit` passes.
 
 ---
 
