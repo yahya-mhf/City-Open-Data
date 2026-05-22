@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
-import { LIGHT_STYLE, DARK_STYLE } from "@/lib/map-styles";
+import { applyMapTheme, LIGHT_STYLE, DARK_STYLE } from "@/lib/map-styles";
 import { useTheme } from "@/lib/theme-context";
 import AddressSearchBar from "./AddressSearchBar";
 import {
@@ -113,19 +113,7 @@ export default function MapView({ markers, onSensorClick }: MapViewProps) {
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
-    const onStyleLoad = () => {
-      addSensorLayers(map, SENSOR_SOURCE);
-      setupSensorInteraction(map, SENSOR_SOURCE, (id, lng, lat) => {
-        map.flyTo({ center: [lng, lat], zoom: 15, duration: 600 });
-        onClickRef.current?.(id);
-      });
-      startPulseAnimation(map, `${SENSOR_SOURCE}-pulse`);
-    };
-    map.once("style.load", onStyleLoad);
-    map.setStyle(nightMode ? DARK_STYLE : LIGHT_STYLE);
-    return () => {
-      map.off("style.load", onStyleLoad);
-    };
+    applyMapTheme(map, nightMode);
   }, [nightMode]);
 
   useEffect(() => {

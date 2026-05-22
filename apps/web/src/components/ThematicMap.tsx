@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback, useState } from "react";
 import maplibregl from "maplibre-gl";
 import { api, createWebSocket, IntelligenceSuggestion } from "@/lib/api";
 import AddressSearchBar from "./AddressSearchBar";
-import { LIGHT_STYLE, DARK_STYLE } from "@/lib/map-styles";
+import { applyMapTheme, LIGHT_STYLE, DARK_STYLE } from "@/lib/map-styles";
 import { useTheme } from "@/lib/theme-context";
 import { setChatContext } from "@/lib/chatbot-context";
 
@@ -408,7 +408,7 @@ export default function ThematicMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.setStyle(nightMode ? DARK_STYLE : LIGHT_STYLE);
+    applyMapTheme(map, nightMode);
   }, [nightMode]);
 
   useEffect(() => {

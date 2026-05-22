@@ -6,7 +6,7 @@ import Link from "next/link";
 import maplibregl from "maplibre-gl";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme-context";
-import { LIGHT_STYLE, DARK_STYLE } from "@/lib/map-styles";
+import { applyMapTheme, LIGHT_STYLE, DARK_STYLE } from "@/lib/map-styles";
 import { EmptyState, PageLoader } from "@/components/PageState";
 
 interface ReportItem {
@@ -101,6 +101,12 @@ export default function ReportsPage() {
       mapRef.current = map;
     });
     return () => { map.remove(); mapRef.current = null; };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    applyMapTheme(map, nightMode);
   }, [nightMode]);
 
   useEffect(() => {

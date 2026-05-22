@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**4 / 28 tasks complete**
+**5 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -56,7 +56,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Remove the 600ms `flyTo → navigate` pattern from `MapView`
   - Apply consistently to `MapView`, `ThematicMap`, `FutureCityMap`
 
-- ❌ **R1.5** Fix MapLibre theme/style change bug
+- ✅ **R1.5** Fix MapLibre theme/style change bug
   - `setStyle()` destroys all custom sources and layers — broken in `ThematicMap`, `MapView`, `FutureCityMap`
   - Fix: after `map.once('styledata', ...)` re-add all sources, layers, markers, and legends
   - Or preferred: swap basemap tiles only without calling `setStyle` (swap `raster-tiles` source URL instead)
