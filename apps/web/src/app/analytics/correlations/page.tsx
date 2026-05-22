@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme-context";
+import { useAuth } from "@/lib/auth-context";
 import { EmptyState, PageError, PageLoader } from "@/components/PageState";
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -63,6 +64,7 @@ function formatMetricName(key: string): string {
 
 export default function CorrelationsPage() {
   const { nightMode } = useTheme();
+  const { token, loading: authLoading } = useAuth();
   const [metrics, setMetrics] = useState<string[]>([]);
   const [pairs, setPairs] = useState<CorrelationPair[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,12 +74,19 @@ export default function CorrelationsPage() {
   const [scatterLoading, setScatterLoading] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!token) {
+      setError("Login required to compute correlations.");
+      setLoading(false);
+      return;
+    }
+    const authToken = token;
     let cancelled = false;
     async function load() {
       setLoading(true);
       setError(null);
       try {
-        const data = await api.analytics.correlations(30);
+        const data = await api.analytics.correlations(30, authToken);
         if (!cancelled) {
           setMetrics(data.metrics);
           setPairs(data.pairs);
@@ -92,7 +101,7 @@ export default function CorrelationsPage() {
     }
     load();
     return () => { cancelled = true; };
-  }, []);
+  }, [authLoading, token]);
 
   const pairMap = useMemo(() => {
     const map = new Map<string, number>();

@@ -1,7 +1,7 @@
 from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select, func as sa_func, text
+from sqlalchemy import select, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from smart_city_database import models
@@ -14,7 +14,7 @@ from smart_city_shared.schemas import (
 )
 
 from smart_city_shared.enums import SubscriptionPlan
-from ....core.dependencies import get_db, track_usage
+from ....core.dependencies import get_current_user, get_db, track_usage
 from fastapi import status as fastapi_status
 
 router = APIRouter()
@@ -203,7 +203,9 @@ async def aggregate_data(
 async def get_correlations(
     days: int = Query(30, ge=7, le=90),
     db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
 ):
+    _ = current_user
     now = datetime.now(timezone.utc)
     since = now - timedelta(days=days)
 
@@ -218,11 +220,10 @@ async def get_correlations(
     metric_id_map = {m.id: m.key for m in all_metrics}
     metric_ids = list(metric_id_map.keys())
 
-    bucket = sa_func.time_bucket(text("'1 hour'::interval"), models.SensorReading.time)
+    bucket = sa_func.date_trunc("hour", models.SensorReading.time)
     hourly = await db.execute(
         select(
             models.SensorReading.metric_id,
-            models.SensorReading.sensor_id,
             bucket.label("bucket"),
             sa_func.avg(models.SensorReading.value_numeric).label("avg_val"),
         ).where(
@@ -231,36 +232,23 @@ async def get_correlations(
             models.SensorReading.value_numeric.isnot(None),
         ).group_by(
             models.SensorReading.metric_id,
-            models.SensorReading.sensor_id,
             bucket,
         ).order_by(
             models.SensorReading.metric_id,
-            models.SensorReading.sensor_id,
             bucket,
         )
     )
     rows = hourly.all()
 
-    raw: dict[str, dict[str, list[float]]] = {}
+    raw: dict[str, dict[datetime, float]] = {}
     for row in rows:
         key = metric_id_map.get(row.metric_id, "")
         if not key:
             continue
-        sid = row.sensor_id
-        val = float(row.avg_val)
         raw.setdefault(key, {})
-        raw[key].setdefault(sid, [])
-        raw[key][sid].append(val)
+        raw[key][row.bucket] = float(row.avg_val)
 
-    metric_ts: dict[str, list[float]] = {}
-    for key, sensors in raw.items():
-        all_vals: list[float] = []
-        for vals in sensors.values():
-            all_vals.extend(vals)
-        if len(all_vals) > 0:
-            metric_ts[key] = all_vals
-
-    keys_with_data = [k for k in metric_keys if k in metric_ts]
+    keys_with_data = [k for k in metric_keys if k in raw]
     if len(keys_with_data) < 2:
         return CorrelationMatrix(metrics=metric_keys, pairs=[])
 
@@ -268,12 +256,12 @@ async def get_correlations(
     for i in range(len(keys_with_data)):
         for j in range(i + 1, len(keys_with_data)):
             a, b = keys_with_data[i], keys_with_data[j]
-            series_a = metric_ts[a]
-            series_b = metric_ts[b]
-            min_len = min(len(series_a), len(series_b))
-            if min_len < 3:
+            shared_buckets = sorted(set(raw[a].keys()) & set(raw[b].keys()))
+            if len(shared_buckets) < 100:
                 continue
-            corr = _pearson(series_a[:min_len], series_b[:min_len])
+            series_a = [raw[a][bucket] for bucket in shared_buckets]
+            series_b = [raw[b][bucket] for bucket in shared_buckets]
+            corr = _pearson(series_a, series_b)
             pairs.append(CorrelationPair(metric_a=a, metric_b=b, correlation=round(corr, 4)))
 
     pairs.sort(key=lambda p: abs(p.correlation), reverse=True)

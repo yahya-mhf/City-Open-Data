@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**14 / 28 tasks complete**
+**15 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -137,7 +137,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Fix AQI sparkline to use normalized scores
   - Redis cache with 5 min TTL
 
-- ❌ **R3.3** Fix correlation calculation
+- ✅ **R3.3** Fix correlation calculation
   - Current implementation aligns by list order, not by timestamp — mathematically wrong
   - Fix: align by shared timestamps using SQL time-series join
   - Skip metric pairs with fewer than 100 shared timestamps
@@ -213,6 +213,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R2.7: Consolidated exports at `/export`, changed `/dashboard/export` to redirect, updated dashboard links, removed the fake district filter from the frontend export workflow, made plan limits explicit, added a visible large-export progress state, and moved export rate/daily counters to Redis with local fallback. Export history is still browser-local because no export-record table/migration exists in the current schema. `npx tsc --noEmit` and `python -m py_compile apps/api/app/api/v1/endpoints/export.py` pass.
 - R3.1: `/ready` now checks DB with `SELECT 1`, Redis with `PING`, and RabbitMQ with a short AMQP connection attempt, returning `{ db, redis, rabbitmq, overall }`. `python -m py_compile apps/api/app/main.py` passes.
 - R3.2: Added `apps/api/app/services/city_health.py` and routed `/api/v1/city-health` through it. The service caches in Redis for 5 minutes, returns null scores with `data_available: false` when source data is missing, and builds normalized sparklines. Updated frontend city-health types/rendering to handle null scores. `python -m py_compile apps/api/app/main.py apps/api/app/services/city_health.py` and `npx tsc --noEmit` pass.
+- R3.3: Correlations now require JWT auth, aggregate hourly values by metric timestamp, align metric pairs by shared timestamp buckets, and skip pairs with fewer than 100 shared buckets. The correlations page sends the auth token. `python -m py_compile apps/api/app/api/v1/endpoints/analytics.py` and `npx tsc --noEmit` pass.
 
 ---
 

@@ -221,9 +221,10 @@ export const api = {
         { token }
       );
     },
-    correlations: (days = 30) =>
+    correlations: (days = 30, token?: string) =>
       fetchApi<{ metrics: string[]; pairs: Array<{ metric_a: string; metric_b: string; correlation: number }> }>(
-        `/analytics/correlations?days=${days}`
+        `/analytics/correlations?days=${days}`,
+        { token }
       ),
     cityHealth: () =>
       fetchApi<{
