@@ -18,6 +18,12 @@ interface AlertMessage {
   message?: string;
 }
 
+interface ChatStreamEvent {
+  delta?: string;
+  status?: "live" | "cached" | "unavailable";
+  reason?: string;
+}
+
 function generateId(): string {
   return crypto.randomUUID?.() ?? Math.random().toString(36).slice(2, 15);
 }
@@ -71,6 +77,8 @@ export default function PulseAIChat() {
   const [pendingAlert, setPendingAlert] = useState<AlertMessage | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [aiStatus, setAiStatus] = useState<"live" | "cached" | "unavailable">("live");
+  const [aiReason, setAiReason] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -102,11 +110,18 @@ export default function PulseAIChat() {
     (m) => m.role === "system" && m.content.startsWith("\u26A0\uFE0F"),
   ).length;
   const statusDot =
-    activeAlertCount > 3
+    aiStatus === "unavailable"
+      ? "bg-red-500"
+      : activeAlertCount > 3
       ? "bg-red-500"
       : activeAlertCount > 0
         ? "bg-amber-500"
         : "bg-green-500";
+  const statusLabel = aiStatus === "unavailable"
+    ? `🔴 Unavailable · ${aiReason ?? "Groq not configured"}`
+    : connected
+      ? "🟢 Live · 0s ago"
+      : "Reconnecting...";
 
   useEffect(() => {
     let ws: WebSocket | null = null;
@@ -197,9 +212,13 @@ export default function PulseAIChat() {
       const tok = token ?? (typeof window !== "undefined" ? localStorage.getItem("access_token") : null);
       if (!tok) {
         setError("Please log in to use Pulse AI.");
+        setAiStatus("unavailable");
+        setAiReason("Authentication required");
         return;
       }
       setError("");
+      setAiStatus("live");
+      setAiReason(null);
       setSuggestions([]);
       const userMsg = { role: "user", content: text.trim(), id: generateId() };
       const convId = conversationId || generateId();
@@ -249,7 +268,11 @@ export default function PulseAIChat() {
               const data = line.slice(6);
               if (data === "[DONE]") continue;
               try {
-                const parsed = JSON.parse(data);
+                const parsed = JSON.parse(data) as ChatStreamEvent;
+                if (parsed.status === "unavailable") {
+                  setAiStatus("unavailable");
+                  setAiReason(parsed.reason ?? "Groq not configured");
+                }
                 if (parsed.delta) {
                   full += parsed.delta;
                   setStreamText(full);
@@ -264,13 +287,13 @@ export default function PulseAIChat() {
         ]);
         setStreamText("");
       } catch {
-        setError(
-          "I'm having trouble accessing city data right now. Try again in a moment.",
-        );
+        setAiStatus("unavailable");
+        setAiReason("AI service request failed");
+        setError("AI unavailable. Pulse AI could not reach the AI service.");
       }
       setStreaming(false);
     },
-    [streaming, conversationId, pathname],
+    [streaming, conversationId, pathname, token],
   );
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -288,6 +311,8 @@ export default function PulseAIChat() {
     setStreaming(false);
     setSuggestions([]);
     setError("");
+    setAiStatus("live");
+    setAiReason(null);
   };
 
   const handleSuggestionClick = (text: string) => {
@@ -333,7 +358,7 @@ export default function PulseAIChat() {
                       className={`w-2 h-2 rounded-full ${statusDot}`}
                     />
                     <span className="text-xs text-gray-500">
-                      {connected ? "Connected" : "Reconnecting..."}
+                      {statusLabel}
                     </span>
                   </div>
                 </div>

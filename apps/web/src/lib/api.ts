@@ -11,9 +11,28 @@ export interface IntelligenceSuggestion {
   confidence: number;
 }
 
-interface IntelligenceUnavailable {
+export interface AiState {
+  available: boolean;
+  status: "live" | "cached" | "unavailable";
+  source: "live" | "cached" | "unavailable";
+  generated_at: string;
+  cached?: boolean;
+  cache_age_seconds?: number;
+  reason?: string;
+}
+
+interface IntelligenceUnavailable extends AiState {
   available: false;
   reason: string;
+}
+
+export interface IntelligenceAnalysisResponse extends AiState {
+  analysis_type: string;
+  suggestions: IntelligenceSuggestion[];
+}
+
+export interface BriefingResponse extends AiState {
+  paragraphs: string[];
 }
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -170,17 +189,25 @@ export const api = {
   },
   intelligence: {
     analyze: async (data: { metric_keys: string[]; bbox: { north: number; south: number; east: number; west: number }; analysis_type: string }) => {
-      const result = await fetchApi<IntelligenceSuggestion[] | IntelligenceUnavailable>("/intelligence/analyze", {
+      const result = await fetchApi<IntelligenceAnalysisResponse | IntelligenceSuggestion[] | IntelligenceUnavailable>("/intelligence/analyze", {
         method: "POST",
         body: JSON.stringify(data),
       });
-      if (!Array.isArray(result)) {
-        throw new Error(result.reason);
+      if (Array.isArray(result)) {
+        return {
+          available: true,
+          status: "live",
+          source: "live",
+          analysis_type: data.analysis_type,
+          generated_at: new Date().toISOString(),
+          suggestions: result,
+        } satisfies IntelligenceAnalysisResponse;
       }
+      if (!result.available) return result as IntelligenceAnalysisResponse;
       return result;
     },
-    briefing: () =>
-      fetchApi<{ paragraphs: string[]; generated_at: string }>("/intelligence/briefing"),
+    briefing: (refresh = false, token?: string) =>
+      fetchApi<BriefingResponse>(`/intelligence/briefing${refresh ? "?refresh=true" : ""}`, { token }),
     suggestions: (analysisType: string, bbox: { north: number; south: number; east: number; west: number }) => {
       const params = new URLSearchParams({
         analysis_type: analysisType,

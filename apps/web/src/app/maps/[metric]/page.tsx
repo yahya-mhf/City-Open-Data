@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import maplibregl from "maplibre-gl";
-import { api, IntelligenceSuggestion } from "@/lib/api";
+import { api, type AiState, type IntelligenceSuggestion } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import SensorDrawer from "@/components/SensorDrawer";
@@ -118,6 +118,8 @@ function MetricMapContent() {
   const [intelLoading, setIntelLoading] = useState(false);
   const [intelSuggestions, setIntelSuggestions] = useState<IntelligenceSuggestion[]>([]);
   const [intelError, setIntelError] = useState<string | null>(null);
+  const [intelState, setIntelState] = useState<Pick<AiState, "status" | "generated_at" | "cache_age_seconds" | "reason"> | null>(null);
+  const [intelAnalysisType, setIntelAnalysisType] = useState<string | null>(null);
 
   const { user, token } = useAuth();
 
@@ -301,6 +303,7 @@ function MetricMapContent() {
     setIntelLoading(true);
     setIntelError(null);
     setIntelSuggestions([]);
+    setIntelAnalysisType(analysisType);
 
     try {
       const results = await api.intelligence.analyze({
@@ -308,9 +311,18 @@ function MetricMapContent() {
         bbox,
         analysis_type: analysisType,
       });
-      setIntelSuggestions(results);
+      setIntelState(results);
+      setIntelSuggestions(results.suggestions);
+      if (!results.available) {
+        setIntelError(results.reason ?? "AI analysis unavailable");
+      }
     } catch (err) {
       setIntelError(err instanceof Error ? err.message : "Analysis failed");
+      setIntelState({
+        status: "unavailable",
+        generated_at: new Date().toISOString(),
+        reason: err instanceof Error ? err.message : "Analysis failed",
+      });
     } finally {
       setIntelLoading(false);
     }
@@ -664,6 +676,8 @@ function MetricMapContent() {
           loading={intelLoading}
           suggestions={intelSuggestions}
           error={intelError}
+          aiState={intelState}
+          analysisType={intelAnalysisType}
           onClose={() => setIntelOpen(false)}
           onSelectAnalysisType={handleSelectAnalysisType}
           onFlyTo={handleFlyTo}

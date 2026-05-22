@@ -214,7 +214,10 @@ async def public_intelligence_latest(
 
     cached = await redis_manager.client.get(keys[-1])
     if cached:
-        return json.loads(cached)
+        parsed = json.loads(cached)
+        if isinstance(parsed, dict):
+            return parsed.get("suggestions", [])
+        return parsed
     return []
 
 

@@ -3,7 +3,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
@@ -150,6 +150,8 @@ async def build_context(
                         parsed = json.loads(item)
                         if isinstance(parsed, list):
                             intelligence.extend(parsed)
+                        elif isinstance(parsed, dict) and isinstance(parsed.get("suggestions"), list):
+                            intelligence.extend(parsed["suggestions"])
                     except (json.JSONDecodeError, TypeError):
                         pass
 
@@ -232,10 +234,16 @@ async def chat_message(
     context_data = await build_context(req.context, db)
 
     if not _groq_client:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="GROQ_API_KEY not configured",
-        )
+        async def unavailable_stream():
+            message = (
+                "AI unavailable · Groq not configured. "
+                "Pulse AI cannot generate a response until the AI service is configured."
+            )
+            payload = {"status": "unavailable", "reason": "Groq not configured", "delta": message}
+            yield f"data: {json.dumps(payload)}\n\n"
+            yield "data: [DONE]\n\n"
+
+        return StreamingResponse(unavailable_stream(), media_type="text/event-stream")
 
     now_utc = datetime.now(timezone.utc)
     now_local = now_utc.astimezone(timezone(timedelta(hours=1)))

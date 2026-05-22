@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from openai import AsyncOpenAI
 from pydantic import BaseModel, Field
-from sqlalchemy import select, func, and_, text
+from sqlalchemy import select, func as sa_func, and_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from smart_city_database import models
@@ -38,6 +38,20 @@ class AnalyzeRequest(BaseModel):
     metric_keys: list[str]
     bbox: BBoxModel
     analysis_type: str = Field(pattern=r"^(opportunities|risks|infrastructure|environment)$")
+
+
+def _ai_unavailable(reason: str, analysis_type: str | None = None) -> dict[str, Any]:
+    result: dict[str, Any] = {
+        "available": False,
+        "status": "unavailable",
+        "source": "unavailable",
+        "reason": reason,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "suggestions": [],
+    }
+    if analysis_type:
+        result["analysis_type"] = analysis_type
+    return result
 
 
 def _bbox_hash(bbox: BBoxModel) -> str:
@@ -262,6 +276,40 @@ async def analyze_endpoint(
     req: AnalyzeRequest,
     db: AsyncSession = Depends(get_db),
 ):
+    bhash = _bbox_hash(req.bbox)
+    cache_key = f"intelligence:{req.analysis_type}:{bhash}"
+    if redis_manager.client:
+        cached = await redis_manager.client.get(cache_key)
+        if cached:
+            parsed = json.loads(cached)
+            now = datetime.now(timezone.utc)
+            if isinstance(parsed, list):
+                generated_at = now.isoformat()
+                return {
+                    "available": True,
+                    "status": "cached",
+                    "source": "cached",
+                    "analysis_type": req.analysis_type,
+                    "generated_at": generated_at,
+                    "cached_at": generated_at,
+                    "cache_age_seconds": 0,
+                    "suggestions": parsed,
+                }
+            generated_at = parsed.get("generated_at") or now.isoformat()
+            try:
+                generated_dt = datetime.fromisoformat(generated_at)
+                cache_age_seconds = max(0, int((now - generated_dt).total_seconds()))
+            except (TypeError, ValueError):
+                cache_age_seconds = 0
+            return {
+                **parsed,
+                "available": True,
+                "status": "cached",
+                "source": "cached",
+                "analysis_type": req.analysis_type,
+                "cache_age_seconds": cache_age_seconds,
+            }
+
     context_metrics: dict[str, Any] = {}
     hourly_maps: dict[str, dict[str, list[dict[str, Any]]]] = {}
     for mk in req.metric_keys:
@@ -271,7 +319,14 @@ async def analyze_endpoint(
             hourly_maps[mk] = hm
 
     if not context_metrics:
-        return []
+        return {
+            "available": True,
+            "status": "live",
+            "source": "live",
+            "analysis_type": req.analysis_type,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "suggestions": [],
+        }
 
     correlations = _compute_correlations(context_metrics, hourly_maps)
 
@@ -283,7 +338,7 @@ async def analyze_endpoint(
         context["correlations"] = correlations
 
     if not _groq_client:
-        return {"available": False, "reason": "AI service not configured"}
+        return _ai_unavailable("Groq not configured", req.analysis_type)
 
     system_prompt = (
         "You are a city intelligence analyst. You receive real sensor data from a smart city "
@@ -354,12 +409,19 @@ async def analyze_endpoint(
                 continue
             validated.append(s)
 
-        bhash = _bbox_hash(req.bbox)
-        cache_key = f"intelligence:{req.analysis_type}:{bhash}"
+        generated_at = datetime.now(timezone.utc).isoformat()
+        result = {
+            "available": True,
+            "status": "live",
+            "source": "live",
+            "analysis_type": req.analysis_type,
+            "generated_at": generated_at,
+            "suggestions": validated,
+        }
         if redis_manager.client:
-            await redis_manager.client.setex(cache_key, 1800, json.dumps(validated, default=str))
+            await redis_manager.client.setex(cache_key, 1800, json.dumps(result, default=str))
 
-        return validated
+        return result
 
     except Exception as e:
         logger.error("Groq API call failed", extra={"error": str(e), "analysis_type": req.analysis_type})
@@ -375,12 +437,32 @@ BRIEFING_CACHE_TTL = 21600  # 6 hours
 
 @router.get("/briefing")
 async def get_daily_briefing(
+    refresh: bool = Query(False),
     db: AsyncSession = Depends(get_db),
 ):
-    if redis_manager.client:
+    if redis_manager.client and not refresh:
         cached = await redis_manager.client.get(BRIEFING_CACHE_KEY)
         if cached:
-            return json.loads(cached)
+            parsed = json.loads(cached)
+            generated_at = parsed.get("generated_at")
+            cache_age_seconds = 0
+            if generated_at:
+                try:
+                    generated_dt = datetime.fromisoformat(generated_at)
+                    cache_age_seconds = max(
+                        0,
+                        int((datetime.now(timezone.utc) - generated_dt).total_seconds()),
+                    )
+                except (TypeError, ValueError):
+                    cache_age_seconds = 0
+            return {
+                **parsed,
+                "available": parsed.get("available", True),
+                "status": "cached",
+                "source": "cached",
+                "cached": True,
+                "cache_age_seconds": cache_age_seconds,
+            }
 
     now = datetime.now(timezone.utc)
     since = now - timedelta(hours=24)
@@ -397,16 +479,15 @@ async def get_daily_briefing(
     metric_id_map = {str(m.id): m.key for m in all_metrics}
 
     if not sensor_ids or not metric_id_map:
-        fallback = {
-            "paragraphs": [
-                "Overnight sensor data was unavailable for analysis.",
-                "No risk assessment could be generated at this time.",
-                "Action: Verify sensor network connectivity and try again later.",
-            ],
+        return {
+            "available": False,
+            "status": "unavailable",
+            "source": "unavailable",
+            "reason": "Sensor data unavailable",
+            "paragraphs": [],
             "generated_at": now.isoformat(),
             "cached": False,
         }
-        return fallback
 
     hour_bucket = sa_func.time_bucket(text("'1 hour'::interval"), models.SensorReading.time)
     hourly = await db.execute(
@@ -466,12 +547,15 @@ async def get_daily_briefing(
         district_summaries.setdefault(district, [])
 
     if not _groq_client:
-        paragraphs = [
-            f"Overnight in Marrakech, {len(all_sensors)} active sensors reported across {len(metric_summaries)} metrics. "
-            + "; ".join(f"{k}: avg {v['avg']:.1f}, range [{v['min']:.1f}-{v['max']:.1f}]" for k, v in list(metric_summaries.items())[:5]),
-            "No AI risk assessment available (GROQ_API_KEY not configured). Monitor the live dashboard for current conditions.",
-            "Action: Set GROQ_API_KEY environment variable to enable AI-powered briefings.",
-        ]
+        return {
+            "available": False,
+            "status": "unavailable",
+            "source": "unavailable",
+            "reason": "Groq not configured",
+            "paragraphs": [],
+            "generated_at": now.isoformat(),
+            "cached": False,
+        }
     else:
         summary_lines = []
         for k, v in metric_summaries.items():
@@ -511,15 +595,23 @@ async def get_daily_briefing(
                 raise ValueError("Expected exactly 3 paragraphs")
         except Exception as e:
             logger.error("Briefing generation failed", extra={"error": str(e)})
-            paragraphs = [
-                f"Overnight in Marrakech, {len(all_sensors)} active sensors reported across {len(metric_summaries)} metrics.",
-                "AI briefing generation encountered an error. Check the intelligence service status.",
-                "Action: Monitor the live dashboard and check GROQ_API_KEY configuration.",
-            ]
+            return {
+                "available": False,
+                "status": "unavailable",
+                "source": "unavailable",
+                "reason": "AI briefing generation failed",
+                "paragraphs": [],
+                "generated_at": now.isoformat(),
+                "cached": False,
+            }
 
     result = {
+        "available": True,
+        "status": "live",
+        "source": "live",
         "paragraphs": paragraphs,
         "generated_at": now.isoformat(),
+        "cached": False,
     }
 
     if redis_manager.client:
@@ -543,5 +635,8 @@ async def get_suggestions(
     if redis_manager.client:
         cached = await redis_manager.client.get(cache_key)
         if cached:
-            return json.loads(cached)
+            parsed = json.loads(cached)
+            if isinstance(parsed, list):
+                return parsed
+            return parsed.get("suggestions", [])
     return []

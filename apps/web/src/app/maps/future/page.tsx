@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import maplibregl from "maplibre-gl";
-import { api, IntelligenceSuggestion } from "@/lib/api";
+import { api, type AiState, type IntelligenceSuggestion } from "@/lib/api";
+import AiStatusBadge from "@/components/AiStatusBadge";
 import { useTheme } from "@/lib/theme-context";
 import { PageError, PageLoader } from "@/components/PageState";
 
@@ -51,6 +52,8 @@ export default function FutureCityPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [intelSuggestions, setIntelSuggestions] = useState<IntelligenceSuggestion[]>([]);
   const [intelLoading, setIntelLoading] = useState(false);
+  const [intelError, setIntelError] = useState<string | null>(null);
+  const [intelState, setIntelState] = useState<Pick<AiState, "status" | "generated_at" | "cache_age_seconds" | "reason"> | null>(null);
   const [lastAnalyzed, setLastAnalyzed] = useState<Date | null>(null);
   const [allMetricKeys, setAllMetricKeys] = useState<string[]>([]);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -150,16 +153,27 @@ export default function FutureCityPage() {
     };
 
     setIntelLoading(true);
+    setIntelError(null);
     try {
       const results = await api.intelligence.analyze({
         metric_keys: allMetricKeys,
         bbox,
         analysis_type: "opportunities",
       });
-      setIntelSuggestions(results);
+      setIntelState(results);
+      setIntelSuggestions(results.suggestions);
+      if (!results.available) {
+        setIntelError(results.reason ?? "AI analysis unavailable");
+      }
       setLastAnalyzed(new Date());
-    } catch {
-      // silent
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "AI analysis unavailable";
+      setIntelError(message);
+      setIntelState({
+        status: "unavailable",
+        generated_at: new Date().toISOString(),
+        reason: message,
+      });
     } finally {
       setIntelLoading(false);
     }
@@ -190,6 +204,13 @@ export default function FutureCityPage() {
                 </span>
               )}
             </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <AiStatusBadge state={intelState} />
+              <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                Analysis type: opportunities
+              </span>
+            </div>
+            {intelError && <p className="mt-2 text-sm text-red-600">{intelError}</p>}
           </div>
           <nav className="flex items-center gap-4">
             <button

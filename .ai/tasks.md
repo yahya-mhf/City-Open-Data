@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**22 / 28 tasks complete**
+**23 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -191,7 +191,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
 ## 🤖 Phase R5 — AI Feature Honesty
 
-- ❌ **R5.1** Make all AI features explicit about their state
+- ✅ **R5.1** Make all AI features explicit about their state
   - Every AI element shows one of: `🟢 Live · Xs ago`, `🟡 Cached · Xm ago`, `🔴 Unavailable · Groq not configured`
   - Daily briefing: show generation timestamp, "Regenerate" button for operators
   - Intelligence panel: show analysis type, cache age, explicit unavailable state
@@ -221,6 +221,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R4.2: Added `/reports/my`, backed by `/api/v1/reports/me`, with report list cards, status badges, status timeline, timestamps, coordinates, and a MapLibre report-location map. Dashboard "My Reports" now links to `/reports/my`. `npx tsc --noEmit` passes.
 - R4.3: Added `/analytics/anomalies` backed by `/api/v1/anomalies`, with sensor type, severity, date range, and search filters; table columns for sensor, metric, event value state, z-score, method, timestamp, and sensor-detail navigation. `npx tsc --noEmit` passes.
 - R4.4: Added a shared `FreshnessIndicator` with green `<30s`, amber `<2min`, and red stale states. Applied it to map freshness, sensor drawer, sensor detail, city health, and thematic map layer controls. `npx tsc --noEmit` passes.
+- R5.1: Added explicit AI state metadata for intelligence analysis and daily briefings, including live/cached/unavailable status, timestamps, cache age, and Groq-not-configured reasons. Daily briefing and intelligence surfaces now show AI status badges, operators/admins can regenerate the briefing, cached intelligence is labeled instead of silently reused, chatbot streams a graceful unavailable response when Groq is missing instead of returning 500, and fallback text is no longer presented as generated AI. `npx tsc --noEmit` and `python -m py_compile apps/api/app/routers/intelligence.py apps/api/app/routers/chatbot.py apps/api/app/routers/public_api.py` pass. `ruff check .` could not run because Ruff is not installed. `npm run lint` still opens the interactive deprecated Next.js ESLint setup prompt.
 
 ---
 

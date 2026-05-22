@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { api } from "@/lib/api";
-import { Badge, Card, Skeleton } from "@/components/ui";
+import { api, type BriefingResponse } from "@/lib/api";
+import AiStatusBadge from "@/components/AiStatusBadge";
+import { Badge, Button, Card, Skeleton } from "@/components/ui";
+import { useAuth } from "@/lib/auth-context";
 
 interface Marker {
   id: string;
@@ -27,11 +29,6 @@ interface CityHealthSummary {
     status: string;
   };
   updated_at: string;
-}
-
-interface BriefingState {
-  paragraphs: string[];
-  generated_at: string;
 }
 
 const HeroMap = dynamic(() => import("@/components/HeroMap"), {
@@ -58,10 +55,11 @@ function metricTimestamp(markers: Marker[]): string | null {
 }
 
 export default function Home() {
+  const { user, token } = useAuth();
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [stats, setStats] = useState<CityStats | null>(null);
   const [health, setHealth] = useState<CityHealthSummary | null>(null);
-  const [briefing, setBriefing] = useState<BriefingState | null>(null);
+  const [briefing, setBriefing] = useState<BriefingResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
@@ -74,7 +72,7 @@ export default function Home() {
           api.map.markers(),
           api.city.stats(),
           api.analytics.cityHealth(),
-          api.intelligence.briefing(),
+          api.intelligence.briefing(false, token ?? undefined),
         ]);
 
         if (!active) return;
@@ -98,7 +96,19 @@ export default function Home() {
       active = false;
       clearInterval(interval);
     };
-  }, []);
+  }, [token]);
+
+  const canRegenerate = user?.role === "operator" || user?.role === "admin";
+
+  const regenerateBriefing = async () => {
+    try {
+      const next = await api.intelligence.briefing(true, token ?? undefined);
+      setBriefing(next);
+      setLastUpdated(new Date());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to regenerate briefing");
+    }
+  };
 
   const markerFreshness = useMemo(() => metricTimestamp(markers), [markers]);
   const activeSensors = stats?.sensor_count ?? markers.filter((marker) => marker.status === "active").length;
@@ -168,14 +178,26 @@ export default function Home() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-primary-200">Daily Briefing</p>
                   <h2 className="mt-1 text-lg font-semibold text-white">Operator summary</h2>
                 </div>
-                <span className="text-xs text-white/50">{formatFreshness(briefing?.generated_at ?? lastUpdated?.toISOString())}</span>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <AiStatusBadge state={briefing} className="bg-black/30 text-white dark:bg-black/30 dark:text-white" />
+                  <span className="text-xs text-white/50">{formatFreshness(briefing?.generated_at ?? lastUpdated?.toISOString())}</span>
+                  {canRegenerate && (
+                    <Button size="sm" variant="secondary" onClick={regenerateBriefing} className="border-white/20 bg-white/10 text-white hover:bg-white/20">
+                      Regenerate
+                    </Button>
+                  )}
+                </div>
               </div>
-              {briefing ? (
+              {briefing?.available ? (
                 <div className="space-y-2 text-sm leading-6 text-white/80">
                   {briefing.paragraphs.slice(0, 2).map((paragraph) => (
                     <p key={paragraph}>{paragraph}</p>
                   ))}
                 </div>
+              ) : briefing && !briefing.available ? (
+                <p className="text-sm leading-6 text-red-200">
+                  AI briefing unavailable: {briefing.reason ?? "Groq not configured"}.
+                </p>
               ) : (
                 <div className="space-y-2">
                   <Skeleton className="h-4 w-full bg-white/20" />

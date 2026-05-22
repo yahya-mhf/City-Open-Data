@@ -1,12 +1,15 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import type { IntelligenceSuggestion } from "@/lib/api";
+import AiStatusBadge from "@/components/AiStatusBadge";
+import type { AiState, IntelligenceSuggestion } from "@/lib/api";
 
 interface IntelligencePanelProps {
   loading: boolean;
   suggestions: IntelligenceSuggestion[];
   error: string | null;
+  aiState: Pick<AiState, "status" | "generated_at" | "cache_age_seconds" | "reason"> | null;
+  analysisType: string | null;
   onClose: () => void;
   onSelectAnalysisType: (type: string) => void;
   onFlyTo: (lat: number, lon: number) => void;
@@ -45,6 +48,8 @@ export default function IntelligencePanel({
   loading,
   suggestions,
   error,
+  aiState,
+  analysisType,
   onClose,
   onSelectAnalysisType,
   onFlyTo,
@@ -69,7 +74,17 @@ export default function IntelligencePanel({
       <div className="fixed inset-0 bg-black/30 z-[1999]" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-white shadow-2xl overflow-y-auto z-[2000]">
         <div className="sticky top-0 bg-white border-b z-10 px-6 py-4 flex items-center justify-between">
-          <h2 className="text-xl font-bold">City Intelligence</h2>
+          <div>
+            <h2 className="text-xl font-bold">City Intelligence</h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <AiStatusBadge state={aiState} />
+              {analysisType && (
+                <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium capitalize text-gray-700">
+                  {analysisType}
+                </span>
+              )}
+            </div>
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
 
