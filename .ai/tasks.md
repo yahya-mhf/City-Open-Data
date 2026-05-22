@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**11 / 28 tasks complete**
+**12 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -113,7 +113,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Live Tester: full key only, show real request and response
   - Remove API key section from `/account` — consolidate everything here
 
-- ❌ **R2.7** Consolidate export into one page at `/export`
+- ✅ **R2.7** Consolidate export into one page at `/export`
   - Delete `/dashboard/export` — redirect to `/export`
   - Fix district filter: add real `district` field to sensors or remove the filter
   - Move in-memory rate limits to Redis
@@ -210,6 +210,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R2.4: Updated `/sensors/[id]` with a proper sensor header, type/status badges, coordinates, last-seen metadata, recent alerts, real report coordinates, mini map, QR section, and existing real charts. Removed `ScenarioSimulator` from the page. `npx tsc --noEmit` passes.
 - R2.5: Made `/admin` admin-only, added explicit permission denied UI, rebuilt it as a sidebar management console with search/filter/pagination, inline sensor editing, sensor deactivation confirmation, role dropdowns for users, report status workflow, and table views for alerts/reports/hubs. Backend admin now supports sensor patch, sensor soft-delete via inactive status, and user role/plan patch. `npx tsc --noEmit` and `python -m py_compile apps/api/app/api/v1/endpoints/admin.py` pass.
 - R2.6: Rebuilt `/developer` into API Keys, Usage, Documentation, and Live Tester tabs. It uses `/api/v1/developer/keys`, maps usage from `requests_today`, `requests_this_week`, and `by_endpoint`, documents `/public/v1` routes only, and requires a full API key for tester calls. Removed API key management from `/account` and linked to `/developer`. `npx tsc --noEmit` passes.
+- R2.7: Consolidated exports at `/export`, changed `/dashboard/export` to redirect, updated dashboard links, removed the fake district filter from the frontend export workflow, made plan limits explicit, added a visible large-export progress state, and moved export rate/daily counters to Redis with local fallback. Export history is still browser-local because no export-record table/migration exists in the current schema. `npx tsc --noEmit` and `python -m py_compile apps/api/app/api/v1/endpoints/export.py` pass.
 
 ---
 

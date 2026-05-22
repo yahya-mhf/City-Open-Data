@@ -15,6 +15,7 @@ from smart_city_shared.enums import SubscriptionPlan
 from smart_city_shared.schemas import ExportRow
 
 from ....core.dependencies import get_db, resolve_api_key_or_user
+from ....core.redis_client import redis_manager
 
 router = APIRouter()
 
@@ -29,7 +30,19 @@ _rate_limit_store: dict[str, list[float]] = defaultdict(list)
 _daily_export_store: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
 
 
-def _check_rate_limit(user_id: str) -> None:
+async def _check_rate_limit(user_id: str) -> None:
+    if redis_manager.client:
+        key = f"export:rate:{user_id}"
+        count = await redis_manager.client.incr(key)
+        if count == 1:
+            await redis_manager.client.expire(key, RATE_LIMIT_WINDOW)
+        if count > RATE_LIMIT_MAX:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Rate limit exceeded. Max {RATE_LIMIT_MAX} exports per hour.",
+            )
+        return
+
     now = time.time()
     window_start = now - RATE_LIMIT_WINDOW
     timestamps = _rate_limit_store[user_id]
@@ -42,10 +55,17 @@ def _check_rate_limit(user_id: str) -> None:
     timestamps.append(now)
 
 
-def _check_daily_limit(user_id: str, plan: str, row_count: int) -> None:
+async def _daily_usage(user_id: str) -> int:
     today = str(date.today())
-    day_records = _daily_export_store[user_id]
-    used = day_records.get(today, 0)
+    if redis_manager.client:
+        raw = await redis_manager.client.get(f"export:daily:{user_id}:{today}")
+        return int(raw or 0)
+    return _daily_export_store.get(user_id, {}).get(today, 0)
+
+
+async def _check_daily_limit(user_id: str, plan: str, row_count: int) -> None:
+    today = str(date.today())
+    used = await _daily_usage(user_id)
     limit = _DAILY_EXPORT_LIMITS.get(plan, 1000)
     if used + row_count > limit:
         remaining = max(0, limit - used)
@@ -53,7 +73,12 @@ def _check_daily_limit(user_id: str, plan: str, row_count: int) -> None:
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Daily export limit reached. Plan allows {limit} rows/day ({remaining} remaining).",
         )
-    day_records[today] = used + row_count
+    if redis_manager.client:
+        key = f"export:daily:{user_id}:{today}"
+        await redis_manager.client.incrby(key, row_count)
+        await redis_manager.client.expire(key, 60 * 60 * 30)
+    else:
+        _daily_export_store[user_id][today] = used + row_count
 
 
 def _get_bucket_expr(granularity: str):
@@ -125,8 +150,7 @@ async def export_preview(
     total = await db.scalar(count_query)
     user_plan = current_user.get("plan", SubscriptionPlan.FREE)
     daily_limit = _DAILY_EXPORT_LIMITS.get(user_plan, 1000)
-    today_str = str(date.today())
-    used = _daily_export_store.get(str(current_user["id"]), {}).get(today_str, 0)
+    used = await _daily_usage(str(current_user["id"]))
 
     return {
         "row_count": total or 0,
@@ -148,7 +172,7 @@ async def export_sensors(
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(resolve_api_key_or_user),
 ):
-    _check_rate_limit(str(current_user["id"]))
+    await _check_rate_limit(str(current_user["id"]))
 
     is_paid = current_user["plan"] in (SubscriptionPlan.PRO, SubscriptionPlan.ENTERPRISE)
     if format_ == "parquet" and not is_paid:
@@ -222,7 +246,7 @@ async def export_sensors(
                 media_type="text/plain",
             )
 
-        _check_daily_limit(str(current_user["id"]), current_user.get("plan", SubscriptionPlan.FREE), len(raw_data))
+        await _check_daily_limit(str(current_user["id"]), current_user.get("plan", SubscriptionPlan.FREE), len(raw_data))
 
         if format_ == "csv":
             return _csv_response(raw_data, start, end)
@@ -267,7 +291,7 @@ async def export_sensors(
             for row in rows
         ]
 
-        _check_daily_limit(str(current_user["id"]), current_user.get("plan", SubscriptionPlan.FREE), len(agg_data))
+        await _check_daily_limit(str(current_user["id"]), current_user.get("plan", SubscriptionPlan.FREE), len(agg_data))
 
         if format_ == "csv":
             return _csv_response(agg_data, start, end)

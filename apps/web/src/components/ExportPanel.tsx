@@ -10,7 +10,6 @@ type Format = "csv" | "json" | "parquet" | "geojson";
 interface ExportConfig {
   sensorIds: string[];
   metricKeys: string[];
-  district?: string;
   start: string;
   end: string;
   format: Format;
@@ -116,7 +115,6 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
       end: new Date(config.end).toISOString(),
       granularity: config.granularity,
     });
-    if (config.district) params.set("district", config.district);
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
     try {
       const res = await fetch(`${baseUrl}/export/preview?${params.toString()}`, {
@@ -136,7 +134,7 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(fetchPreview, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, [config.sensorIds, config.metricKeys, config.start, config.end, config.granularity, config.district]);
+  }, [config.sensorIds, config.metricKeys, config.start, config.end, config.granularity]);
 
   const handleExport = useCallback(async () => {
     setError(null);
@@ -153,8 +151,6 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
       format: config.format,
       granularity: config.granularity,
     });
-    if (config.district) params.set("district", config.district);
-
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
     try {
@@ -372,6 +368,11 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
       </div>
 
       {/* Export button */}
+      {exporting && (
+        <div className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-sm text-primary-700 dark:border-primary-900 dark:bg-primary-900/20 dark:text-primary-300">
+          Preparing export. Large files may take a moment; the download will start automatically.
+        </div>
+      )}
       <button
         onClick={handleExport}
         disabled={!canExport || exporting}

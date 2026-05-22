@@ -84,7 +84,7 @@ function DashboardContent() {
             <h3 className="text-lg font-semibold">My Reports</h3>
             <p className="text-gray-600 mt-2 dark:text-gray-400">Track your submitted reports</p>
           </Link>
-          <Link href="/dashboard/export" className="block rounded-lg border border-l-4 border-gray-200 border-l-green-500 bg-white p-6 shadow-sm transition hover:border-primary-200 hover:shadow-md dark:border-night-border dark:border-l-green-500 dark:bg-night-secondary">
+          <Link href="/export" className="block rounded-lg border border-l-4 border-gray-200 border-l-green-500 bg-white p-6 shadow-sm transition hover:border-primary-200 hover:shadow-md dark:border-night-border dark:border-l-green-500 dark:bg-night-secondary">
             <h3 className="text-lg font-semibold">Data Export</h3>
             <p className="text-gray-600 mt-2 dark:text-gray-400">Download sensor data as CSV, JSON, or Parquet</p>
           </Link>
