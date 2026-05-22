@@ -5,12 +5,12 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pandas as pd
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from prophet import Prophet
 from sqlalchemy import select, text, func as sa_func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from smart_city_database import models
+from smart_city_database import SessionLocal, models
 from ..core.dependencies import get_db, redis_manager
 
 router = APIRouter()
@@ -234,9 +234,21 @@ async def _forecast_sensor(
     return {"sensor_id": sensor_id, **cache_data}
 
 
+async def _compute_forecast_background(
+    metric_key: str,
+    metric_id,
+    sensor_id: str,
+    hours_ahead: int,
+) -> None:
+    async with SessionLocal() as session:
+        loop = asyncio.get_running_loop()
+        await _forecast_sensor(metric_key, metric_id, sensor_id, hours_ahead, session, loop)
+
+
 @router.get("/layers/{metric_key}/forecast")
 async def get_forecast(
     metric_key: str,
+    background_tasks: BackgroundTasks,
     sensor_id: str | None = Query(None),
     hours_ahead: int = Query(DEFAULT_HOURS, ge=1, le=MAX_HOURS),
     db: AsyncSession = Depends(get_db),
@@ -252,25 +264,37 @@ async def get_forecast(
         )
     metric_id = metric.id
 
-    loop = asyncio.get_event_loop()
-
     if sensor_id:
-        result = await _forecast_sensor(metric_key, metric_id, sensor_id, hours_ahead, db, loop)
-        if result is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Insufficient data to forecast sensor '{sensor_id}' for metric '{metric_key}'",
-            )
-        return result
+        cached = await _get_cached_forecast(metric_key, sensor_id, hours_ahead)
+        if cached is not None:
+            return {"sensor_id": sensor_id, "data_available": True, **cached}
+        background_tasks.add_task(_compute_forecast_background, metric_key, metric_id, sensor_id, hours_ahead)
+        return {
+            "sensor_id": sensor_id,
+            "data_available": False,
+            "reason": "Forecast is not precomputed or insufficient historical data is available.",
+            "forecast": [],
+            "regressors": [],
+            "regressor_importance": {},
+            "type": "unavailable",
+        }
 
     sensors_result = await db.execute(
         select(models.Sensor).where(models.Sensor.status == "active")
     )
     all_sensors = sensors_result.scalars().all()
 
-    tasks = [
-        _forecast_sensor(metric_key, metric_id, s.id, hours_ahead, db, loop)
-        for s in all_sensors
-    ]
-    results = await asyncio.gather(*tasks)
-    return [r for r in results if r is not None]
+    results = []
+    for sensor in all_sensors:
+        cached = await _get_cached_forecast(metric_key, sensor.id, hours_ahead)
+        if cached is not None:
+            results.append({"sensor_id": sensor.id, "data_available": True, **cached})
+        else:
+            background_tasks.add_task(
+                _compute_forecast_background,
+                metric_key,
+                metric_id,
+                sensor.id,
+                hours_ahead,
+            )
+    return results

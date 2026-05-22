@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**15 / 28 tasks complete**
+**16 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -143,7 +143,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Skip metric pairs with fewer than 100 shared timestamps
   - Require auth on this endpoint (currently unauthenticated and expensive)
 
-- ❌ **R3.4** Fix forecast endpoint
+- ✅ **R3.4** Fix forecast endpoint
   - Move Prophet computation out of request path → background task or scheduled pre-computation
   - Fix cache key to include `hours_ahead`
   - Fix concurrent SQLAlchemy async session usage in fan-out — use separate sessions per task
@@ -214,6 +214,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R3.1: `/ready` now checks DB with `SELECT 1`, Redis with `PING`, and RabbitMQ with a short AMQP connection attempt, returning `{ db, redis, rabbitmq, overall }`. `python -m py_compile apps/api/app/main.py` passes.
 - R3.2: Added `apps/api/app/services/city_health.py` and routed `/api/v1/city-health` through it. The service caches in Redis for 5 minutes, returns null scores with `data_available: false` when source data is missing, and builds normalized sparklines. Updated frontend city-health types/rendering to handle null scores. `python -m py_compile apps/api/app/main.py apps/api/app/services/city_health.py` and `npx tsc --noEmit` pass.
 - R3.3: Correlations now require JWT auth, aggregate hourly values by metric timestamp, align metric pairs by shared timestamp buckets, and skip pairs with fewer than 100 shared buckets. The correlations page sends the auth token. `python -m py_compile apps/api/app/api/v1/endpoints/analytics.py` and `npx tsc --noEmit` pass.
+- R3.4: Forecast endpoint now returns cached forecasts immediately and schedules cache misses in background tasks using separate SQLAlchemy sessions. Single-sensor misses return `data_available: false` with an empty forecast payload instead of blocking or raising on insufficient data. The cache key includes `hours_ahead`. `python -m py_compile apps/api/app/routers/forecast.py` passes.
 
 ---
 
