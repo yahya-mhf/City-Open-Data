@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**21 / 28 tasks complete**
+**22 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -182,7 +182,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Click row → sensor detail page
   - Link to related alert if fired
 
-- ❌ **R4.4** Add data freshness indicators everywhere
+- ✅ **R4.4** Add data freshness indicators everywhere
   - Every data component shows "Updated Xs ago" with color: green <30s, amber 30s–2min, red >2min
   - Apply to: map markers, sensor drawer, sensor detail, city health cards, thematic map layers
   - WebSocket-connected components update freshness in real time
@@ -220,6 +220,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R4.1: Added `/analytics` landing page with Correlations, Anomalies, Export, and City Health tool cards, active metric count, and city-health freshness context. Correlations now has a real back-link target. `npx tsc --noEmit` passes.
 - R4.2: Added `/reports/my`, backed by `/api/v1/reports/me`, with report list cards, status badges, status timeline, timestamps, coordinates, and a MapLibre report-location map. Dashboard "My Reports" now links to `/reports/my`. `npx tsc --noEmit` passes.
 - R4.3: Added `/analytics/anomalies` backed by `/api/v1/anomalies`, with sensor type, severity, date range, and search filters; table columns for sensor, metric, event value state, z-score, method, timestamp, and sensor-detail navigation. `npx tsc --noEmit` passes.
+- R4.4: Added a shared `FreshnessIndicator` with green `<30s`, amber `<2min`, and red stale states. Applied it to map freshness, sensor drawer, sensor detail, city health, and thematic map layer controls. `npx tsc --noEmit` passes.
 
 ---
 

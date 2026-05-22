@@ -9,6 +9,7 @@ import SensorQRCode from "@/components/SensorQRCode";
 import SensorCharts from "@/components/SensorCharts";
 import { PageError, PageLoader } from "@/components/PageState";
 import { Badge, Button, Card, Select, Textarea } from "@/components/ui";
+import FreshnessIndicator from "@/components/FreshnessIndicator";
 
 const MiniMap = dynamic(() => import("./MiniMap"), {
   ssr: false,
@@ -172,6 +173,7 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
                   <div className="rounded-lg border border-gray-200 p-3 dark:border-night-border">
                     <p className="text-xs uppercase text-gray-400">Last seen</p>
                     <p className="mt-1">{lastSeen}</p>
+                    <FreshnessIndicator timestamp={latest?.timestamp} label="Sensor" />
                   </div>
                   <div className="rounded-lg border border-gray-200 p-3 dark:border-night-border">
                     <p className="text-xs uppercase text-gray-400">Metrics</p>

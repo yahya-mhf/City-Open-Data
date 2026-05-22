@@ -11,6 +11,7 @@ import { useTheme } from "@/lib/theme-context";
 import SensorDrawer from "@/components/SensorDrawer";
 import IntelligencePanel from "@/components/IntelligencePanel";
 import { PageError, PageLoader } from "@/components/PageState";
+import FreshnessIndicator from "@/components/FreshnessIndicator";
 import {
   LineChart, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -359,6 +360,10 @@ function MetricMapContent() {
     });
     return combined;
   }, [chartSensorId, mode, historyData, forecastData]);
+  const layerFreshness = useMemo(() => {
+    const times = markers.map((marker) => marker.time).filter((time): time is string => Boolean(time)).sort();
+    return times.at(-1) ?? null;
+  }, [markers]);
 
   const progress = bucketTimes.length > 0
     ? ((currentBucketIndex + 1) / bucketTimes.length) * 100
@@ -420,6 +425,7 @@ function MetricMapContent() {
       </header>
 
       <div className="bg-white border-b px-3 md:px-4 py-2 flex flex-wrap items-center gap-2 md:gap-4">
+        <FreshnessIndicator timestamp={layerFreshness} label="Layer" />
         <div className="flex bg-gray-100 rounded-lg p-0.5">
           <button
             onClick={() => handleToggleMode("live")}

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api, createWebSocket } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 import SensorQRCode from "./SensorQRCode";
+import FreshnessIndicator from "@/components/FreshnessIndicator";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
 } from "recharts";
@@ -301,9 +302,7 @@ export default function SensorDrawer({ sensorId, onClose }: SensorDrawerProps) {
                 >
                   Open full page &rarr;
                 </Link>
-                <span className="text-xs text-gray-400">
-                  Last updated: {latest?.timestamp ? new Date(latest.timestamp).toLocaleTimeString() : "N/A"}
-                </span>
+                <FreshnessIndicator timestamp={latest?.timestamp} label="Sensor" />
               </div>
             </>
           )}

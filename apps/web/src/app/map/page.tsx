@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { api } from "@/lib/api";
 import SensorDrawer from "@/components/SensorDrawer";
+import FreshnessIndicator from "@/components/FreshnessIndicator";
 import { EmptyState, PageError, PageLoader } from "@/components/PageState";
 import { Badge, Card, Input, Select, Skeleton } from "@/components/ui";
 
@@ -169,7 +170,7 @@ function MapPageContent() {
         <div className="col-span-full flex flex-wrap items-center justify-between gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm dark:border-night-border dark:bg-night-secondary">
           <div>
             <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Operations Map</h1>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{formatFreshness(newestReading ?? lastUpdated)}</p>
+            <FreshnessIndicator timestamp={newestReading ?? lastUpdated} label="Map" />
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="info">{filteredMarkers.length}/{markers.length} sensors</Badge>
@@ -257,7 +258,7 @@ function MapPageContent() {
           )}
           {lastUpdated ? (
             <div className="pointer-events-none absolute bottom-4 left-4 z-[1000] rounded-lg bg-black/70 px-3 py-2 text-xs text-white shadow-lg">
-              {formatFreshness(lastUpdated)}
+              <FreshnessIndicator timestamp={lastUpdated} label="Refresh" />
             </div>
           ) : (
             <Skeleton className="absolute bottom-4 left-4 z-[1000] h-8 w-32 bg-black/30" />

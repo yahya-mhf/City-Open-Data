@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
+import FreshnessIndicator from "@/components/FreshnessIndicator";
 import {
   AreaChart, Area, ResponsiveContainer,
 } from "recharts";
@@ -110,7 +111,10 @@ export default function CityHealth() {
   return (
     <section className="relative z-10 px-4 -mt-8 mb-8">
       <div className="max-w-6xl mx-auto">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">City Health Dashboard</h2>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">City Health Dashboard</h2>
+          <FreshnessIndicator timestamp={data.updated_at} label="City health" />
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {cards.map((card) => {
             const chartData = card.sparkline.map((v, i) => ({ i, v }));
