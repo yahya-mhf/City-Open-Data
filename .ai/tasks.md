@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**3 / 28 tasks complete**
+**4 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -50,7 +50,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Replace every silently swallowed API failure with one of these three components
   - Pages affected: dashboard, map, maps, sensors, reports, admin, developer, export, analytics
 
-- ❌ **R1.4** Fix the map marker click conflict
+- ✅ **R1.4** Fix the map marker click conflict
   - Decide: marker click opens `SensorDrawer`, NOT navigates to `/sensors/[id]`
   - Navigation to full sensor page only via drawer's "View full details" button
   - Remove the 600ms `flyTo → navigate` pattern from `MapView`

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import maplibregl from "maplibre-gl";
 import { LIGHT_STYLE, DARK_STYLE } from "@/lib/map-styles";
 import { useTheme } from "@/lib/theme-context";
@@ -55,7 +54,6 @@ function toSensorPoints(data: MarkerData[]): SensorPoint[] {
 
 export default function MapView({ markers, onSensorClick }: MapViewProps) {
   const { nightMode } = useTheme();
-  const router = useRouter();
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<maplibregl.Map | null>(null);
   const pendingRef = useRef<MarkerData[]>([]);
@@ -81,7 +79,6 @@ export default function MapView({ markers, onSensorClick }: MapViewProps) {
       addSensorLayers(map, SENSOR_SOURCE);
       setupSensorInteraction(map, SENSOR_SOURCE, (id, lng, lat) => {
         map.flyTo({ center: [lng, lat], zoom: 15, duration: 600 });
-        setTimeout(() => router.push(`/sensors/${id}`), 600);
         onClickRef.current?.(id);
       });
       startPulseAnimation(map, `${SENSOR_SOURCE}-pulse`);
@@ -120,7 +117,6 @@ export default function MapView({ markers, onSensorClick }: MapViewProps) {
       addSensorLayers(map, SENSOR_SOURCE);
       setupSensorInteraction(map, SENSOR_SOURCE, (id, lng, lat) => {
         map.flyTo({ center: [lng, lat], zoom: 15, duration: 600 });
-        setTimeout(() => router.push(`/sensors/${id}`), 600);
         onClickRef.current?.(id);
       });
       startPulseAnimation(map, `${SENSOR_SOURCE}-pulse`);
