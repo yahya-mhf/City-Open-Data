@@ -23,7 +23,7 @@ interface CityStats {
 
 interface CityHealthSummary {
   aqi: {
-    score: number;
+    score: number | null;
     status: string;
   };
   updated_at: string;
@@ -136,7 +136,7 @@ export default function Home() {
                 </div>
                 <div className="rounded-lg border border-white/10 bg-white/10 p-3">
                   <p className="text-xs text-white/60">AQI</p>
-                  <p className="mt-1 text-2xl font-semibold">{aqiScore !== undefined ? Math.round(aqiScore) : <Skeleton className="h-7 w-12 bg-white/20" />}</p>
+                  <p className="mt-1 text-2xl font-semibold">{aqiScore !== undefined && aqiScore !== null ? Math.round(aqiScore) : <Skeleton className="h-7 w-12 bg-white/20" />}</p>
                   <p className="mt-2 text-[11px] text-white/50">{formatFreshness(health?.updated_at)}</p>
                 </div>
               </div>

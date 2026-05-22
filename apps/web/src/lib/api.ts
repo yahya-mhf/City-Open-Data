@@ -227,9 +227,9 @@ export const api = {
       ),
     cityHealth: () =>
       fetchApi<{
-        aqi: { name: string; score: number; previous_score: number; trend: string; status: string; sparkline: (number | null)[] };
-        heat_stress: { name: string; score: number; previous_score: number; trend: string; status: string; sparkline: (number | null)[] };
-        livability: { name: string; score: number; previous_score: number; trend: string; status: string; sparkline: (number | null)[] };
+        aqi: { name: string; score: number | null; previous_score: number | null; trend: string | null; status: string; sparkline: (number | null)[]; data_available?: boolean };
+        heat_stress: { name: string; score: number | null; previous_score: number | null; trend: string | null; status: string; sparkline: (number | null)[]; data_available?: boolean };
+        livability: { name: string; score: number | null; previous_score: number | null; trend: string | null; status: string; sparkline: (number | null)[]; data_available?: boolean };
         updated_at: string;
       }>("/city-health"),
     aggregate: (sensorId: string, metrics?: string[], from?: string, to?: string, token?: string) => {

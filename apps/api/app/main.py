@@ -21,6 +21,7 @@ from .routers.intelligence import router as intelligence_router
 from .routers.public_api import router as public_api_router
 from .routers.chatbot import router as chatbot_router
 from .routers.internal import router as internal_router
+from .services.city_health import get_city_health
 from .core.minio_client import minio_manager
 from .core.websocket_handler import websocket_router, redis_subscriber
 
@@ -139,6 +140,7 @@ def _status_good_moderate_critical(score: float, inverted: bool = False) -> str:
 
 @app.get("/api/v1/city-health")
 async def city_health(db: AsyncSession = Depends(get_db)):
+    return await get_city_health(db, redis_manager.client)
     import json
     from sqlalchemy import select, func as sa_func, text
     from sqlalchemy.ext.asyncio import AsyncSession

@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**13 / 28 tasks complete**
+**14 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -130,7 +130,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Return `{ db: ok, redis: ok, rabbitmq: ok, overall: ok }`
   - Used by Docker healthcheck and Railway
 
-- ❌ **R3.2** Move city-health logic out of `main.py`
+- ✅ **R3.2** Move city-health logic out of `main.py`
   - Create `apps/api/app/services/city_health.py`
   - Move AQI, heat stress, livability calculations there
   - Return `null` scores with `data_available: false` when no data — not fake `50` scores
@@ -212,6 +212,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R2.6: Rebuilt `/developer` into API Keys, Usage, Documentation, and Live Tester tabs. It uses `/api/v1/developer/keys`, maps usage from `requests_today`, `requests_this_week`, and `by_endpoint`, documents `/public/v1` routes only, and requires a full API key for tester calls. Removed API key management from `/account` and linked to `/developer`. `npx tsc --noEmit` passes.
 - R2.7: Consolidated exports at `/export`, changed `/dashboard/export` to redirect, updated dashboard links, removed the fake district filter from the frontend export workflow, made plan limits explicit, added a visible large-export progress state, and moved export rate/daily counters to Redis with local fallback. Export history is still browser-local because no export-record table/migration exists in the current schema. `npx tsc --noEmit` and `python -m py_compile apps/api/app/api/v1/endpoints/export.py` pass.
 - R3.1: `/ready` now checks DB with `SELECT 1`, Redis with `PING`, and RabbitMQ with a short AMQP connection attempt, returning `{ db, redis, rabbitmq, overall }`. `python -m py_compile apps/api/app/main.py` passes.
+- R3.2: Added `apps/api/app/services/city_health.py` and routed `/api/v1/city-health` through it. The service caches in Redis for 5 minutes, returns null scores with `data_available: false` when source data is missing, and builds normalized sparklines. Updated frontend city-health types/rendering to handle null scores. `python -m py_compile apps/api/app/main.py apps/api/app/services/city_health.py` and `npx tsc --noEmit` pass.
 
 ---
 

@@ -9,11 +9,12 @@ import {
 
 interface HealthMetric {
   name: string;
-  score: number;
-  previous_score: number;
-  trend: string;
+  score: number | null;
+  previous_score: number | null;
+  trend: string | null;
   status: string;
   sparkline: (number | null)[];
+  data_available?: boolean;
 }
 
 interface HealthData {
@@ -32,7 +33,7 @@ function statusColor(status: string): string {
   }
 }
 
-function trendIcon(trend: string): string {
+function trendIcon(trend: string | null): string {
   switch (trend) {
     case "up": return "\u2191";
     case "down": return "\u2193";
@@ -40,7 +41,7 @@ function trendIcon(trend: string): string {
   }
 }
 
-function trendColor(trend: string, status: string): string {
+function trendColor(trend: string | null, status: string): string {
   if (status === "critical") {
     return trend === "up" ? "text-green-500" : "text-red-500";
   }
@@ -125,13 +126,15 @@ export default function CityHealth() {
                   </span>
                 </div>
                 <div className="flex items-baseline gap-2 mb-1">
-                  <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">{card.score}</span>
-                  <span className={`text-sm font-medium ${trendColor(card.trend, card.status)}`}>
-                    {trendIcon(card.trend)} {Math.abs(card.score - card.previous_score).toFixed(1)}
-                  </span>
+                  <span className="text-3xl font-bold text-gray-900 dark:text-gray-100">{card.score ?? "--"}</span>
+                  {card.score !== null && card.previous_score !== null && (
+                    <span className={`text-sm font-medium ${trendColor(card.trend, card.status)}`}>
+                      {trendIcon(card.trend)} {Math.abs(card.score - card.previous_score).toFixed(1)}
+                    </span>
+                  )}
                 </div>
                 <div className="text-[10px] text-gray-400 dark:text-gray-500 mb-2">
-                  vs yesterday: {card.previous_score.toFixed(1)}
+                  {card.previous_score !== null ? `vs yesterday: ${card.previous_score.toFixed(1)}` : "data unavailable"}
                 </div>
                 {chartData.length > 0 && (
                   <div className="h-8">
