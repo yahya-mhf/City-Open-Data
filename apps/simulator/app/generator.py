@@ -1,9 +1,12 @@
 import math
 import random
+import time as _time
 from datetime import datetime, timezone
 from typing import Any
 
 HOUR = 3600
+_last_seismic_time: float = 0.0
+MIN_SEISMIC_INTERVAL = 2 * HOUR
 
 
 CITY_CENTER_LAT = 31.6295
@@ -104,6 +107,7 @@ def generate_readings(
     realistic_time: bool,
     interval_seconds: int,
 ) -> list[dict[str, Any]]:
+    global _last_seismic_time
     now = datetime.now(timezone.utc)
     t_factor = _time_of_day_factor(now) if realistic_time else 0.5
     seasonal_temp = _seasonal_base_temp(now) if realistic_time else 20.0
@@ -137,8 +141,10 @@ def generate_readings(
         s.rainfall += (base_rain - s.rainfall) * 0.01
         s.rainfall = _clamp(s.rainfall, 0.0, 150.0)
 
-        if random.random() < 0.02:  # 2% chance of seismic event
-            s.seismic = random.uniform(2.0, 4.5)
+        now_sec = _time.time()
+        if now_sec - _last_seismic_time >= MIN_SEISMIC_INTERVAL and random.random() < 0.01:
+            _last_seismic_time = now_sec
+            s.seismic = random.uniform(3.5, 5.5)
         else:
             s.seismic += random.gauss(0, 0.05 * step)
             s.seismic += (0.1 - s.seismic) * 0.02
