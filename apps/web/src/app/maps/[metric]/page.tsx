@@ -10,6 +10,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import SensorDrawer from "@/components/SensorDrawer";
 import IntelligencePanel from "@/components/IntelligencePanel";
+import { PageError, PageLoader } from "@/components/PageState";
 import {
   LineChart, ComposedChart, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -383,10 +384,7 @@ function MetricMapContent() {
           </div>
         </header>
         <main className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <p className="text-red-600 text-lg font-medium mb-2">{error}</p>
-            <Link href="/maps" className="text-primary-600 hover:text-primary-800">&larr; Back to all maps</Link>
-          </div>
+          <PageError message={error} />
         </main>
       </div>
     );
@@ -554,7 +552,7 @@ function MetricMapContent() {
 
       <main className="flex-1 p-4 relative">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-gray-500">Loading map data...</div>
+          <PageLoader message="Loading map data..." />
         ) : (
           <div className="h-[50vh] md:h-[calc(100vh-12rem)] rounded-xl overflow-hidden shadow-lg relative">
               {metricInfo && (

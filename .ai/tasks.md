@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**2 / 28 tasks complete**
+**3 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -43,7 +43,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Breadcrumbs on all inner pages
   - All `AuthProvider` wrapping consolidated to root layout only — remove duplicate providers from individual pages
 
-- ❌ **R1.3** Create a unified error + loading system
+- ✅ **R1.3** Create a unified error + loading system
   - `<PageError message={} retry={} />` component used everywhere API calls fail
   - `<PageLoader />` skeleton component for all loading states
   - `<EmptyState message={} icon={} />` for genuinely empty data

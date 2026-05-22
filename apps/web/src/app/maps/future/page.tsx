@@ -6,6 +6,7 @@ import Link from "next/link";
 import maplibregl from "maplibre-gl";
 import { api, IntelligenceSuggestion } from "@/lib/api";
 import { useTheme } from "@/lib/theme-context";
+import { PageError, PageLoader } from "@/components/PageState";
 
 const FutureCityMap = dynamic(() => import("@/components/FutureCityMap"), {
   ssr: false,
@@ -47,6 +48,7 @@ export default function FutureCityPage() {
   const { nightMode, toggleNightMode } = useTheme();
   const [categories, setCategories] = useState<Record<string, CategoryEntry>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [intelSuggestions, setIntelSuggestions] = useState<IntelligenceSuggestion[]>([]);
   const [intelLoading, setIntelLoading] = useState(false);
   const [lastAnalyzed, setLastAnalyzed] = useState<Date | null>(null);
@@ -59,6 +61,7 @@ export default function FutureCityPage() {
 
     async function load() {
       try {
+        setLoadError(null);
         const metrics = await api.maps.metrics();
         if (cancelled) return;
 
@@ -117,7 +120,10 @@ export default function FutureCityPage() {
           setLoading(false);
         }
       } catch {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoadError("Failed to load future city data");
+          setLoading(false);
+        }
       }
     }
 
@@ -218,9 +224,9 @@ export default function FutureCityPage() {
 
       <main className="flex-1 p-4 relative">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-gray-500">
-            Loading sensor data...
-          </div>
+          <PageLoader message="Loading sensor data..." />
+        ) : loadError ? (
+          <PageError message={loadError} retry={() => window.location.reload()} />
         ) : (
           <div className="h-[calc(100vh-10rem)] rounded-xl overflow-hidden shadow-lg relative">
             <FutureCityMap

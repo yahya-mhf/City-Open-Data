@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
+import { PageError } from "@/components/PageState";
 
 interface UserItem { id: string; email: string; full_name: string; role: string; created_at: string }
 interface SensorItem { id: string; name: string; type: string; latitude: number; longitude: number; status: string }
@@ -21,17 +22,29 @@ function AdminContent() {
   const [hubs, setHubs] = useState<HubItem[]>([]);
   const [alerts, setAlerts] = useState<AlertItem[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [newSensorName, setNewSensorName] = useState("");
   const [newSensorLat, setNewSensorLat] = useState("");
   const [newSensorLng, setNewSensorLng] = useState("");
 
   useEffect(() => {
     if (!token) return;
-    api.admin.sensors.list(token).then(setSensors).catch(() => {});
-    api.admin.users.list(token).then(setUsers).catch(() => {});
-    api.admin.hubs.list(token).then(setHubs).catch(() => {});
-    api.alerts.list(token).then(setAlerts).catch(() => {});
-    api.reports.list(token).then(setReports).catch(() => {});
+    setLoadError(null);
+    Promise.all([
+      api.admin.sensors.list(token),
+      api.admin.users.list(token),
+      api.admin.hubs.list(token),
+      api.alerts.list(token),
+      api.reports.list(token),
+    ])
+      .then(([sensorRows, userRows, hubRows, alertRows, reportRows]) => {
+        setSensors(sensorRows);
+        setUsers(userRows);
+        setHubs(hubRows);
+        setAlerts(alertRows);
+        setReports(reportRows);
+      })
+      .catch((err) => setLoadError(err instanceof Error ? err.message : "Failed to load admin data"));
   }, [token]);
 
   if (!user || (user.role !== "admin" && user.role !== "operator")) {
@@ -40,6 +53,10 @@ function AdminContent() {
         <p>Access denied. <Link href="/" className="text-primary-600">Go home</Link></p>
       </div>
     );
+  }
+
+  if (loadError) {
+    return <PageError message={loadError} retry={() => window.location.reload()} />;
   }
 
   const addSensor = async () => {

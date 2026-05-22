@@ -6,6 +6,7 @@ import Link from "next/link";
 import maplibregl from "maplibre-gl";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme-context";
+import { PageError, PageLoader } from "@/components/PageState";
 
 const ThematicMap = dynamic(() => import("@/components/ThematicMap"), {
   ssr: false,
@@ -47,6 +48,7 @@ export default function CompareMapsPage() {
   const [leftInfo, setLeftInfo] = useState<MetricInfo | null>(null);
   const [rightInfo, setRightInfo] = useState<MetricInfo | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const syncing = useRef(false);
   const mapsRef = useRef<{ left?: maplibregl.Map; right?: maplibregl.Map }>({});
 
@@ -57,6 +59,7 @@ export default function CompareMapsPage() {
   useEffect(() => {
     api.maps.metrics()
       .then((list) => {
+        setError(null);
         setMetrics(list);
         if (list.length >= 2) {
           setLeftMetric(list[0].key);
@@ -66,6 +69,7 @@ export default function CompareMapsPage() {
           setRightMetric(list[0].key);
         }
       })
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load metrics"))
       .finally(() => setLoading(false));
   }, []);
 
@@ -73,14 +77,14 @@ export default function CompareMapsPage() {
     if (!leftMetric) return;
     const mi = metrics.find((m) => m.key === leftMetric);
     if (mi) setLeftInfo(mi);
-    api.maps.layers(leftMetric).then(setLeftMarkers).catch(() => {});
+    api.maps.layers(leftMetric).then(setLeftMarkers).catch((err) => setError(err instanceof Error ? err.message : "Failed to load left map layer"));
   }, [leftMetric, metrics]);
 
   useEffect(() => {
     if (!rightMetric) return;
     const mi = metrics.find((m) => m.key === rightMetric);
     if (mi) setRightInfo(mi);
-    api.maps.layers(rightMetric).then(setRightMarkers).catch(() => {});
+    api.maps.layers(rightMetric).then(setRightMarkers).catch((err) => setError(err instanceof Error ? err.message : "Failed to load right map layer"));
   }, [rightMetric, metrics]);
 
   const handleLeftReady = useCallback((map: maplibregl.Map) => {
@@ -116,9 +120,13 @@ export default function CompareMapsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-night-primary flex items-center justify-center">
-        <span className="text-gray-500 dark:text-gray-400">Loading...</span>
+        <PageLoader message="Loading comparison..." />
       </div>
     );
+  }
+
+  if (error) {
+    return <PageError message={error} retry={() => window.location.reload()} />;
   }
 
   return (

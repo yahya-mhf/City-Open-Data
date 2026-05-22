@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
+import { PageLoader } from "@/components/PageState";
 import {
   LineChart, BarChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -188,7 +189,7 @@ function MyApiKeysTab({ token }: { token: string }) {
     setLoading(true);
     authFetch<ApiKey[]>("/developer/keys", token)
       .then(setKeys)
-      .catch(() => {})
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load API keys"))
       .finally(() => setLoading(false));
   };
 
@@ -439,9 +440,10 @@ function UsageAnalyticsTab({ token }: { token: string }) {
   const [selectedKeyId, setSelectedKeyId] = useState<string>("");
   const [stats, setStats] = useState<UsageStats | null>(null);
   const [loadingStats, setLoadingStats] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    authFetch<ApiKey[]>("/developer/keys", token).then(setKeys).catch(() => {});
+    authFetch<ApiKey[]>("/developer/keys", token).then(setKeys).catch((err) => setError(err instanceof Error ? err.message : "Failed to load API keys"));
   }, [token]);
 
   useEffect(() => {
@@ -459,7 +461,10 @@ function UsageAnalyticsTab({ token }: { token: string }) {
           current_minute_requests: data.requests_today,
         });
       })
-      .catch(() => setStats(null))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to load usage analytics");
+        setStats(null);
+      })
       .finally(() => setLoadingStats(false));
   }, [selectedKeyId, token]);
 
@@ -493,7 +498,13 @@ function UsageAnalyticsTab({ token }: { token: string }) {
       )}
 
       {selectedKeyId && loadingStats && (
-        <div className="text-center py-12 text-gray-500">Loading analytics...</div>
+        <PageLoader message="Loading analytics..." />
+      )}
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
       )}
 
       {selectedKeyId && !loadingStats && stats && (
@@ -610,7 +621,7 @@ function ApiDocsTab({ token }: { token: string }) {
   const [testerError, setTesterError] = useState("");
 
   useEffect(() => {
-    authFetch<ApiKey[]>("/developer/keys", token).then(setKeys).catch(() => {});
+    authFetch<ApiKey[]>("/developer/keys", token).then(setKeys).catch((err) => setTesterError(err instanceof Error ? err.message : "Failed to load API keys"));
   }, [token]);
 
   const selectedDoc = DOCS_ENDPOINTS.find((e) => e.path === activeEndpoint);
@@ -849,7 +860,7 @@ function DeveloperContent() {
   ];
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <PageLoader message="Loading developer portal..." />;
   }
 
   if (!user) {

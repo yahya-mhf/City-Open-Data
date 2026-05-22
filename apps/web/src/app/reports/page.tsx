@@ -7,6 +7,7 @@ import maplibregl from "maplibre-gl";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme-context";
 import { LIGHT_STYLE, DARK_STYLE } from "@/lib/map-styles";
+import { EmptyState, PageLoader } from "@/components/PageState";
 
 interface ReportItem {
   id: string;
@@ -37,6 +38,7 @@ export default function ReportsPage() {
   const { nightMode, toggleNightMode } = useTheme();
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [category, setCategory] = useState("");
   const [selectedReport, setSelectedReport] = useState<ReportItem | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -48,10 +50,13 @@ export default function ReportsPage() {
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
     try {
       const data = await api.reports.public(category || undefined);
       setReports(data);
-    } catch {}
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load reports");
+    }
     setLoading(false);
   }, [category]);
 
@@ -157,9 +162,13 @@ export default function ReportsPage() {
 
             <div className="space-y-3 max-h-[600px] overflow-y-auto">
               {loading ? (
-                <div className="text-center py-10 text-gray-400">Loading...</div>
+                <PageLoader message="Loading reports..." />
+              ) : loadError ? (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/20 dark:text-red-300">
+                  {loadError}
+                </div>
               ) : reports.length === 0 ? (
-                <div className="text-center py-10 text-gray-400">No reports found</div>
+                <EmptyState message="No public reports match the selected filters." />
               ) : (
                 reports.map((r) => (
                   <button

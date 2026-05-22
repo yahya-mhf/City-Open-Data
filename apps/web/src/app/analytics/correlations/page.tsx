@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme-context";
+import { EmptyState, PageError, PageLoader } from "@/components/PageState";
 import {
   ScatterChart, Scatter, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -199,24 +200,11 @@ export default function CorrelationsPage() {
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {loading ? (
-          <div className="text-center py-20 text-gray-500 dark:text-gray-400">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mx-auto mb-4" />
-            Computing correlations...
-          </div>
+          <PageLoader message="Computing correlations..." />
         ) : error ? (
-          <div className="text-center py-20">
-            <p className="text-red-600 text-lg font-medium mb-2">{error}</p>
-            <button
-              onClick={() => window.location.reload()}
-              className="text-primary-600 hover:text-primary-800 text-sm"
-            >
-              Try again
-            </button>
-          </div>
+          <PageError message={error} retry={() => window.location.reload()} />
         ) : metrics.length < 2 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-500 dark:text-gray-400 text-lg">Need at least 2 metrics with data to compute correlations.</p>
-          </div>
+          <EmptyState message="Need at least two metrics with data to compute correlations." />
         ) : (
           <div className="space-y-8">
             <div className="bg-white dark:bg-night-secondary rounded-xl shadow p-6 overflow-x-auto">

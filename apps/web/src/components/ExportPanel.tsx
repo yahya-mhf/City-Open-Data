@@ -90,8 +90,15 @@ export function ExportPanel({ token, userPlan = "free" }: ExportPanelProps) {
 
   useEffect(() => {
     if (!token) return;
-    api.sensors.list(token).then(setSensors).catch(() => {});
-    api.metrics.list(true).then(setMetrics).catch(() => {});
+    Promise.all([
+      api.sensors.list(token),
+      api.metrics.list(true),
+    ])
+      .then(([sensorRows, metricRows]) => {
+        setSensors(sensorRows);
+        setMetrics(metricRows);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load export filters"));
   }, [token]);
 
   const fetchPreview = useCallback(async () => {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
+import { PageError, PageLoader } from "@/components/PageState";
 
 function DashboardContent() {
   const { user, token, loading } = useAuth();
@@ -12,16 +13,26 @@ function DashboardContent() {
   const [sensorCount, setSensorCount] = useState(0);
   const [alertCount, setAlertCount] = useState(0);
   const [reportCount, setReportCount] = useState(0);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) return;
-    api.sensors.list(token).then((s) => setSensorCount(s.length)).catch(() => {});
-    api.alerts.list(token, false).then((a) => setAlertCount(a.length)).catch(() => {});
-    api.reports.my(token).then((r) => setReportCount(r.length)).catch(() => {});
+    setError(null);
+    Promise.all([
+      api.sensors.list(token),
+      api.alerts.list(token, false),
+      api.reports.my(token),
+    ])
+      .then(([sensors, alerts, reports]) => {
+        setSensorCount(sensors.length);
+        setAlertCount(alerts.length);
+        setReportCount(reports.length);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load dashboard data"));
   }, [token]);
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <PageLoader message="Loading dashboard..." />;
   }
 
   if (!user) {
@@ -34,6 +45,10 @@ function DashboardContent() {
 
   const isAdmin = user.role === "admin";
   const isOperator = user.role === "operator" || isAdmin;
+
+  if (error) {
+    return <PageError message={error} retry={() => window.location.reload()} />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

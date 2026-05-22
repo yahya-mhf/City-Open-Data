@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { useTheme } from "@/lib/theme-context";
+import { EmptyState, PageError, PageLoader } from "@/components/PageState";
 
 interface MetricItem {
   id: string;
@@ -19,9 +20,14 @@ export default function MapsPage() {
   const { nightMode, toggleNightMode } = useTheme();
   const [metrics, setMetrics] = useState<MetricItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.maps.metrics().then(setMetrics).catch(() => {}).finally(() => setLoading(false));
+    setError(null);
+    api.maps.metrics()
+      .then(setMetrics)
+      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load metric layers"))
+      .finally(() => setLoading(false));
   }, []);
 
   const categoryColors: Record<string, string> = {
@@ -59,11 +65,11 @@ export default function MapsPage() {
 
       <main className="flex-1 max-w-7xl mx-auto px-4 py-8 w-full">
         {loading ? (
-          <div className="flex items-center justify-center h-64 text-gray-500">Loading metrics...</div>
+          <PageLoader message="Loading metrics..." />
+        ) : error ? (
+          <PageError message={error} retry={() => window.location.reload()} />
         ) : metrics.length === 0 ? (
-          <div className="flex items-center justify-center h-64 text-gray-500">
-            No metric layers available.
-          </div>
+          <EmptyState message="No metric layers are available." />
         ) : (
           <>
             <Link

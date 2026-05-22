@@ -8,6 +8,7 @@ import { useTheme } from "@/lib/theme-context";
 import SensorQRCode from "@/components/SensorQRCode";
 import SensorCharts from "@/components/SensorCharts";
 import ScenarioSimulator from "@/components/ScenarioSimulator";
+import { PageError, PageLoader } from "@/components/PageState";
 
 const MiniMap = dynamic(() => import("./MiniMap"), {
   ssr: false,
@@ -25,6 +26,7 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
   const [sensor, setSensor] = useState<{ name: string; type: string; status: string; latitude: number; longitude: number } | null>(null);
   const [latest, setLatest] = useState<{ timestamp?: string; metrics: Record<string, number> } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [reportForm, setReportForm] = useState(false);
   const [reportCategory, setReportCategory] = useState("");
   const [reportDesc, setReportDesc] = useState("");
@@ -39,13 +41,16 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
 
   const fetchSensor = useCallback(async () => {
     try {
+      setLoadError(null);
       const [s, l] = await Promise.all([
         api.sensors.get(id),
         api.sensors.latest(id),
       ]);
       setSensor(s);
       setLatest(l);
-    } catch { /* ignore */ }
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load sensor");
+    }
   }, [id]);
 
   useEffect(() => {
@@ -166,7 +171,9 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {loading ? (
-          <div className="text-center py-20 text-gray-500 dark:text-gray-400">Loading sensor data...</div>
+          <PageLoader message="Loading sensor data..." />
+        ) : loadError ? (
+          <PageError message={loadError} retry={() => window.location.reload()} />
         ) : !sensor ? (
           <div className="text-center py-20 text-red-600">Sensor not found</div>
         ) : (

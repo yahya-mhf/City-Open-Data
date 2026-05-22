@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
 import SensorDrawer from "@/components/SensorDrawer";
+import { PageError, PageLoader } from "@/components/PageState";
 
 const MapView = dynamic(() => import("@/components/MapView"), {
   ssr: false,
@@ -18,19 +19,19 @@ function MapPageContent() {
   const { nightMode, toggleNightMode } = useTheme();
   const [markers, setMarkers] = useState<Array<{ id: string; name: string; latitude: number; longitude: number; status: string; latest: Record<string, unknown> }>>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null);
 
   useEffect(() => {
+    setError(null);
     api.map.markers().then((data) => {
-      console.log("[MapPage] markers from API:", JSON.parse(JSON.stringify(data.slice(0, 3))));
       const parsed = data.map((m: Record<string, unknown>) => ({
         ...m,
         latitude: parseFloat(String(m.latitude)),
         longitude: parseFloat(String(m.longitude)),
       }));
-      console.log("[MapPage] parsed markers:", parsed.slice(0, 3));
       setMarkers(parsed as typeof markers);
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch((err) => setError(err instanceof Error ? err.message : "Failed to load map markers")).finally(() => setLoading(false));
   }, []);
 
   const handleSensorClick = useCallback((sensorId: string) => {
@@ -61,7 +62,9 @@ function MapPageContent() {
 
       <main className="flex-1 p-4">
         {loading ? (
-          <div className="flex items-center justify-center h-full text-gray-500">Loading map...</div>
+          <PageLoader message="Loading map..." />
+        ) : error ? (
+          <PageError message={error} retry={() => window.location.reload()} />
         ) : (
           <div className="h-[calc(100vh-8rem)] rounded-xl overflow-hidden shadow-lg relative z-0">
             <MapView markers={markers} onSensorClick={handleSensorClick} />

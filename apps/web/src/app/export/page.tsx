@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useTheme } from "@/lib/theme-context";
 import { useAuth } from "@/lib/auth-context";
 import { ExportPanel } from "@/components/ExportPanel";
+import { PageLoader } from "@/components/PageState";
 
 function ExportPageContent() {
   const { nightMode, toggleNightMode } = useTheme();
@@ -35,7 +36,7 @@ function ExportPageContent() {
 
       <main className="max-w-4xl mx-auto px-4 py-8">
         {loading ? (
-          <div className="text-center py-20 text-gray-500 dark:text-gray-400">Loading...</div>
+          <PageLoader message="Loading export tools..." />
         ) : !token || !user ? (
           <div className="bg-white dark:bg-night-secondary rounded-xl shadow p-8 text-center">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Authentication Required</h2>

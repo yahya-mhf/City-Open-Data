@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { api } from "@/lib/api";
+import { PageLoader } from "@/components/PageState";
 
 interface ApiKeyItem {
   id: string;
@@ -57,7 +58,7 @@ function AccountContent() {
 
   useEffect(() => {
     if (!token) return;
-    api.apiKeys.list(token).then(setApiKeys).catch(() => {});
+    api.apiKeys.list(token).then(setApiKeys).catch((err) => setError(err instanceof Error ? err.message : "Failed to load API keys"));
   }, [token]);
 
   const createKey = async () => {
@@ -86,7 +87,7 @@ function AccountContent() {
   };
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+    return <PageLoader message="Loading account..." />;
   }
 
   if (!user) {

@@ -22,6 +22,7 @@ function HomeContent() {
   const { nightMode, toggleNightMode, demoMode, toggleDemoMode } = useTheme();
   const [sensorCount, setSensorCount] = useState<number | null>(null);
   const [alertCount, setAlertCount] = useState<number | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
   const featuresRef = useRef<HTMLElement>(null);
 
   const fetchStats = async () => {
@@ -31,8 +32,11 @@ function HomeContent() {
         const data = await res.json();
         setSensorCount(data.sensor_count);
         setAlertCount(data.alert_count);
+        setStatsError(null);
       }
-    } catch { /* ignore */ }
+    } catch (err) {
+      setStatsError(err instanceof Error ? err.message : "Failed to load city stats");
+    }
   };
 
   useEffect(() => {
@@ -105,6 +109,9 @@ function HomeContent() {
                   <div className="text-xs text-white/60 uppercase tracking-wider mt-1">Active Alerts</div>
                 </div>
               </div>
+              {statsError && (
+                <p className="mb-4 text-xs text-red-200">{statsError}</p>
+              )}
 
               <div className="flex flex-wrap justify-center gap-4">
                 <Link

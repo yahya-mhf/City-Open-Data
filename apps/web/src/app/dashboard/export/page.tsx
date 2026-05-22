@@ -4,17 +4,14 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { ExportPanel } from "@/components/ExportPanel";
+import { PageLoader } from "@/components/PageState";
 
 function ExportContent() {
   const { user, token, loading } = useAuth();
   const { nightMode, toggleNightMode } = useTheme();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        Loading...
-      </div>
-    );
+    return <PageLoader message="Loading export tools..." />;
   }
 
   if (!user) {
