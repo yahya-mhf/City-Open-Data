@@ -1,5 +1,7 @@
 "use client";
 
+import { Button, Card } from "@/components/ui";
+
 interface PageErrorProps {
   message: string;
   retry?: () => void;
@@ -16,17 +18,14 @@ interface EmptyStateProps {
 
 export function PageError({ message, retry }: PageErrorProps) {
   return (
-    <div className="flex min-h-[16rem] items-center justify-center rounded-xl border border-red-200 bg-red-50 p-8 text-center dark:border-red-800 dark:bg-red-900/20">
+    <div className="flex min-h-[16rem] items-center justify-center rounded-lg border border-red-200 bg-red-50 p-8 text-center dark:border-red-800 dark:bg-red-900/20">
       <div>
         <p className="text-base font-semibold text-red-700 dark:text-red-300">Unable to load data</p>
         <p className="mt-2 text-sm text-red-600 dark:text-red-400">{message}</p>
         {retry && (
-          <button
-            onClick={retry}
-            className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
-          >
+          <Button variant="danger" onClick={retry} className="mt-4">
             Retry
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -46,11 +45,11 @@ export function PageLoader({ message = "Loading..." }: PageLoaderProps) {
 
 export function EmptyState({ message, icon = "No data" }: EmptyStateProps) {
   return (
-    <div className="flex min-h-[12rem] items-center justify-center rounded-xl border border-gray-200 bg-white p-8 text-center dark:border-night-border dark:bg-night-secondary">
+    <Card className="flex min-h-[12rem] items-center justify-center p-8 text-center">
       <div>
         <p className="text-sm font-semibold text-gray-700 dark:text-gray-200">{icon}</p>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{message}</p>
       </div>
-    </div>
+    </Card>
   );
 }

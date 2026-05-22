@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import SeismicAlertWrapper from "@/components/SeismicAlertWrapper";
 import ChatWrapper from "@/components/chatbot/ChatWrapper";
+import { Badge, Button, Tooltip } from "@/components/ui";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -93,23 +94,14 @@ export default function AppShell({ children }: AppShellProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={toggleDemoMode}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                demoMode
-                  ? "bg-amber-500 text-white"
-                  : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-night-border dark:text-gray-300"
-              }`}
-            >
-              {demoMode ? "Demo On" : "Demo"}
+            <button onClick={toggleDemoMode} className="inline-flex" aria-pressed={demoMode}>
+              <Badge tone={demoMode ? "amber" : "default"}>{demoMode ? "Demo On" : "Demo"}</Badge>
             </button>
-            <button
-              onClick={toggleNightMode}
-              className="rounded-lg px-3 py-2 text-sm text-gray-600 transition hover:bg-gray-100 hover:text-primary-700 dark:text-gray-300 dark:hover:bg-night-border"
-              title={nightMode ? "Switch to day mode" : "Switch to night mode"}
-            >
-              {nightMode ? "Day" : "Night"}
-            </button>
+            <Tooltip label={nightMode ? "Switch to day mode" : "Switch to night mode"}>
+              <Button variant="ghost" size="sm" onClick={toggleNightMode}>
+                {nightMode ? "Day" : "Night"}
+              </Button>
+            </Tooltip>
             {loading ? (
               <span className="text-sm text-gray-400">Loading...</span>
             ) : user ? (
@@ -117,12 +109,9 @@ export default function AppShell({ children }: AppShellProps) {
                 <span className="hidden text-sm text-gray-500 dark:text-gray-400 md:inline">
                   {user.full_name}
                 </span>
-                <button
-                  onClick={() => logout()}
-                  className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:hover:bg-red-900/20"
-                >
+                <Button variant="ghost" size="sm" onClick={() => logout()} className="text-red-600 dark:text-red-400">
                   Logout
-                </button>
+                </Button>
               </>
             ) : (
               <div className="flex items-center gap-2">

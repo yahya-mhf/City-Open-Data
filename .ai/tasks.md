@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**5 / 28 tasks complete**
+**6 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -66,7 +66,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
 ## 🎨 Phase R2 — UI/UX Overhaul
 
-- ❌ **R2.1** Design system unification
+- ✅ **R2.1** Design system unification
   - Create `components/ui/` with: `Button`, `Badge`, `Card`, `Input`, `Select`, `Tabs`, `Modal`, `Drawer`, `Tooltip`, `Skeleton`
   - Every component supports dark mode via `dark:night-*` tokens
   - Replace all ad-hoc styled elements across every page with these components
@@ -203,6 +203,8 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 ## Session Notes
 
 > Record discoveries, blockers, and unexpected findings here after each session.
+
+- R2.1: Added shared UI primitives and migrated the global shell, page states, dashboard, account, report submission form, and demo badge to the shared Button/Badge/Card/Input/Select/Textarea/Tooltip patterns with dark-mode states. `npx tsc --noEmit` passes. `ruff check .` and `poetry run ruff check .` could not run because Ruff is not installed/available in the local Poetry environment. `npm run lint` opens the deprecated Next.js ESLint setup prompt because ESLint has not been configured.
 
 ---
 
