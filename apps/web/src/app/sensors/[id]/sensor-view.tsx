@@ -121,6 +121,7 @@ export default function SensorPage({ params }: { params: Promise<{ id: string }>
       const formData = new FormData();
       formData.append("category", reportCategory);
       formData.append("description", reportDesc);
+      formData.append("sensor_id", id);
       formData.append("latitude", String(sensor.latitude));
       formData.append("longitude", String(sensor.longitude));
       await api.reports.create(formData, token);

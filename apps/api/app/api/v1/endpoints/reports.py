@@ -1,7 +1,7 @@
 import uuid
 from io import BytesIO
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +23,7 @@ async def create_report(
     description: str = Form(...),
     latitude: float = Form(...),
     longitude: float = Form(...),
+    sensor_id: str | None = Form(None),
     image: UploadFile | None = File(None),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(get_current_user),
@@ -38,6 +39,14 @@ async def create_report(
         image_url = minio_manager.upload_file(
             object_name, BytesIO(contents), image.content_type
         )
+
+    if sensor_id:
+        sensor_result = await db.execute(select(models.Sensor).where(models.Sensor.id == sensor_id))
+        sensor = sensor_result.scalar_one_or_none()
+        if not sensor:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Sensor not found")
+        latitude = sensor.latitude
+        longitude = sensor.longitude
 
     report = models.CitizenReport(
         user_id=current_user["id"],
@@ -80,13 +89,15 @@ async def list_public_reports(
 
 @router.get("", response_model=list[ReportRead])
 async def list_all_reports(
-    status_filter: str | None = None,
+    status_filter: str | None = Query(None),
+    status: str | None = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: dict = Depends(require_operator),
 ):
     query = select(models.CitizenReport).order_by(models.CitizenReport.created_at.desc())
-    if status_filter:
-        query = query.where(models.CitizenReport.status == status_filter)
+    selected_status = status_filter or status
+    if selected_status:
+        query = query.where(models.CitizenReport.status == selected_status)
     result = await db.execute(query)
     return result.scalars().all()
 

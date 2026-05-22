@@ -68,7 +68,10 @@ async def get_sensor(sensor_id: str, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{sensor_id}/latest", response_model=SensorLatestRead)
-async def get_sensor_latest(sensor_id: str):
+async def get_sensor_latest(sensor_id: str, db: AsyncSession = Depends(get_db)):
+    sensor_result = await db.execute(select(models.Sensor.id).where(models.Sensor.id == sensor_id))
+    if not sensor_result.scalar_one_or_none():
+        raise HTTPException(status_code=fastapi_status.HTTP_404_NOT_FOUND, detail="Sensor not found")
     cached = await redis_manager.get_latest_reading(sensor_id)
     if cached:
         return SensorLatestRead(
@@ -76,7 +79,7 @@ async def get_sensor_latest(sensor_id: str):
             timestamp=cached.get("timestamp"),
             metrics=cached.get("metrics", {}),
         )
-    return SensorLatestRead(sensor_id=sensor_id)
+    return SensorLatestRead(sensor_id=sensor_id, metrics={})
 
 
 @router.get("/{sensor_id}/history", response_model=list[SensorReadingHistory])
@@ -179,7 +182,13 @@ async def get_sensor_stats(
     since_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     metric_defs = await db.execute(
-        select(models.MetricDefinition).where(models.MetricDefinition.is_active == True)
+        select(models.MetricDefinition)
+        .join(models.SensorReading, models.SensorReading.metric_id == models.MetricDefinition.id)
+        .where(
+            models.MetricDefinition.is_active == True,
+            models.SensorReading.sensor_id == sensor_id,
+        )
+        .distinct()
     )
     all_metrics = metric_defs.scalars().all()
 
@@ -356,7 +365,7 @@ async def get_sensor_distribution(
     rows = (await db.execute(count_query)).all()
 
     result: list[HistogramBucket] = []
-    bucket_counts = {int(row.bucket_idx): row.cnt for row in rows}
+    bucket_counts = {min(int(row.bucket_idx), buckets - 1): row.cnt for row in rows}
 
     for i in range(buckets):
         rmin = round(min_val + i * bucket_width, 2)

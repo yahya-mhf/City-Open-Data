@@ -19,7 +19,7 @@ Continue iterating until no obvious weaknesses remain.
 
 ## Progress
 
-**17 / 28 tasks complete**
+**18 / 28 tasks complete**
 
 Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 
@@ -154,7 +154,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
   - Return `{ available: false, reason: "AI service not configured" }` when Groq key missing
   - Frontend must display this state explicitly
 
-- ❌ **R3.6** Fix sensor and report bugs
+- ✅ **R3.6** Fix sensor and report bugs
   - `latest` returns empty for unknown sensor — fix to return 404
   - `stats` returns all metric definitions including ones with no readings — filter to actual readings only
   - Report create: when `sensor_id` provided, use sensor's real lat/lng instead of user-submitted coordinates
@@ -216,6 +216,7 @@ Status: ✅ Done | 🔄 In Progress | ❌ Not Started
 - R3.3: Correlations now require JWT auth, aggregate hourly values by metric timestamp, align metric pairs by shared timestamp buckets, and skip pairs with fewer than 100 shared buckets. The correlations page sends the auth token. `python -m py_compile apps/api/app/api/v1/endpoints/analytics.py` and `npx tsc --noEmit` pass.
 - R3.4: Forecast endpoint now returns cached forecasts immediately and schedules cache misses in background tasks using separate SQLAlchemy sessions. Single-sensor misses return `data_available: false` with an empty forecast payload instead of blocking or raising on insufficient data. The cache key includes `hours_ahead`. `python -m py_compile apps/api/app/routers/forecast.py` passes.
 - R3.5: `/intelligence/analyze` now prompts for and parses a JSON array without conflicting JSON-object response mode, accepts a `suggestions` wrapper defensively, and returns `{ available: false, reason: "AI service not configured" }` when Groq is missing. The frontend API client turns this into an explicit visible error. `python -m py_compile apps/api/app/routers/intelligence.py` and `npx tsc --noEmit` pass.
+- R3.6: Sensor latest now checks sensor existence and returns 404 for unknown IDs, sensor stats only list metric definitions that have readings for that sensor, histogram max values clamp into the final bucket, report creation uses real sensor coordinates when `sensor_id` is provided, and report listing accepts both `status_filter` and `status`. `python -m py_compile apps/api/app/api/v1/endpoints/sensors.py apps/api/app/api/v1/endpoints/reports.py` and `npx tsc --noEmit` pass.
 
 ---
 
