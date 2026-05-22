@@ -20,6 +20,10 @@ const UNIT_MAP: Record<string, string> = {
   pressure: "hPa",
   rainfall: "mm/h",
   seismic: "R",
+  uv_index: "",
+  traffic_density: "veh/min",
+  energy_grid_load: "MW",
+  dust_storm_index: "",
 };
 
 function formatTime(iso: string | undefined): string {

@@ -50,6 +50,7 @@ class MetricCategory(StrEnum):
     RADIATION = "radiation"
     TRAFFIC = "traffic"
     SAFETY = "safety"
+    ENERGY = "energy"
 
 
 class SubscriptionPlan(StrEnum):

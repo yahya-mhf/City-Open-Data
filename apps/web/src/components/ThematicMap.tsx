@@ -86,6 +86,18 @@ function getColorScheme(
   ) {
     return ["#22c55e", "#ef4444"];
   }
+  if (lower.includes("uv")) {
+    return ["#8b5cf6", "#f59e0b"];
+  }
+  if (lower.includes("traffic") || lower.includes("density")) {
+    return ["#22c55e", "#ef4444"];
+  }
+  if (lower.includes("energy") || lower.includes("grid") || lower.includes("load")) {
+    return ["#f59e0b", "#ef4444"];
+  }
+  if (lower.includes("dust")) {
+    return ["#d97706", "#dc2626"];
+  }
   return ["#6366f1", "#f97316"];
 }
 
@@ -110,6 +122,18 @@ const gradients: Record<string, Record<string, string>> = {
   humidity: {
     0.0: "#fff7fb", 0.5: "#74a9cf", 1.0: "#023858",
   },
+  uv: {
+    0.0: "#ffffcc", 0.3: "#c2e699", 0.6: "#78c679", 0.8: "#238443", 1.0: "#543005",
+  },
+  traffic: {
+    0.0: "#1a9850", 0.4: "#ffffbf", 0.7: "#f46d43", 1.0: "#67000d",
+  },
+  energy: {
+    0.0: "#ffffcc", 0.3: "#ffeda0", 0.6: "#feb24c", 0.8: "#f03b20", 1.0: "#bd0026",
+  },
+  dust: {
+    0.0: "#ffffcc", 0.3: "#fdd49e", 0.6: "#fdbb84", 0.8: "#e34a33", 1.0: "#7f0000",
+  },
   default: {
     0.0: "#313695", 0.5: "#ffffbf", 1.0: "#a50026",
   },
@@ -132,6 +156,12 @@ function getGradient(
     return gradients.pollution;
   if (lower.includes("humidity") || lower.includes("moisture"))
     return gradients.humidity;
+  if (lower.includes("uv")) return gradients.uv;
+  if (lower.includes("traffic") || lower.includes("density"))
+    return gradients.traffic;
+  if (lower.includes("energy") || lower.includes("grid") || lower.includes("load"))
+    return gradients.energy;
+  if (lower.includes("dust")) return gradients.dust;
   return gradients.default;
 }
 

@@ -299,6 +299,26 @@ SUGGESTION_MAP: dict[str, list[str]] = {
         "Is the city seismically stable right now?",
         "Show me sensor locations near fault lines",
     ],
+    "maps/uv": [
+        "What's the UV index right now?",
+        "Is it safe to be outdoors?",
+        "Which areas have the highest UV exposure?",
+    ],
+    "maps/traffic": [
+        "What's traffic like right now?",
+        "Which roads are most congested?",
+        "Is rush hour easing up?",
+    ],
+    "maps/energy": [
+        "What's the current energy grid load?",
+        "Is the grid under stress from heat?",
+        "How does energy usage compare to yesterday?",
+    ],
+    "maps/dust": [
+        "Is there a dust storm risk today?",
+        "Which zones have the worst air quality from dust?",
+        "Any dust storm warnings for Marrakech?",
+    ],
     "default": [
         "What's the current city status?",
         "Are there any active alerts?",

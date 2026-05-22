@@ -75,6 +75,10 @@ async def seed() -> None:
                 MetricDefinition(key="seismic", display_name="Seismic Activity", unit="richter", category=MetricCategory.SAFETY, min_value=0, max_value=10, thresholds_json={"medium": 2.0, "high": 2.5, "critical": 4.0}),
                 MetricDefinition(key="co2", display_name="CO2", unit="ppm", category=MetricCategory.AIR_QUALITY, min_value=350, max_value=2000, thresholds_json={"high": 1000}),
                 MetricDefinition(key="pressure", display_name="Atmospheric Pressure", unit="hPa", category=MetricCategory.WEATHER, min_value=980, max_value=1050),
+                MetricDefinition(key="uv_index", display_name="UV Index", unit="", category=MetricCategory.RADIATION, min_value=0, max_value=11, thresholds_json={"medium": 5, "high": 8, "extreme": 11}),
+                MetricDefinition(key="traffic_density", display_name="Traffic Density", unit="veh/min", category=MetricCategory.TRAFFIC, min_value=0, max_value=200, thresholds_json={"medium_hi": 80, "high_hi": 150}),
+                MetricDefinition(key="energy_grid_load", display_name="Energy Grid Load", unit="MW", category=MetricCategory.ENERGY, min_value=0, max_value=5000, thresholds_json={"medium_hi": 3000, "high_hi": 4000}),
+                MetricDefinition(key="dust_storm_index", display_name="Dust Storm Index", unit="", category=MetricCategory.WEATHER, min_value=0, max_value=5, thresholds_json={"medium": 2, "high": 3, "extreme": 4}),
             ]
             for m in metrics:
                 session.add(m)

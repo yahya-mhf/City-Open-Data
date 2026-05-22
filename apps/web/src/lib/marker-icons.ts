@@ -5,6 +5,10 @@ export const METRIC_ICONS: Record<string, string> = {
   seismic: "\uD83D\uDCE1",
   humidity: "\uD83D\uDCA7",
   co2: "\uD83C\uDFED",
+  uv: "\u2600\uFE0F",
+  traffic: "\uD83D\uDE97",
+  energy: "\u26A1",
+  dust: "\uD83C\uDF2A\uFE0F",
   default: "\uD83D\uDCCD",
 };
 
@@ -19,6 +23,14 @@ export function getMetricIcon(metricKey: string): string {
     return METRIC_ICONS.seismic;
   if (lower.includes("humid") || lower.includes("moisture"))
     return METRIC_ICONS.humidity;
+  if (lower.includes("uv"))
+    return METRIC_ICONS.uv;
+  if (lower.includes("traffic"))
+    return METRIC_ICONS.traffic;
+  if (lower.includes("energy") || lower.includes("grid") || lower.includes("load"))
+    return METRIC_ICONS.energy;
+  if (lower.includes("dust"))
+    return METRIC_ICONS.dust;
   return METRIC_ICONS.default;
 }
 

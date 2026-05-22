@@ -19,6 +19,7 @@ class Settings:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     API_HOST: str = os.getenv("API_HOST", "0.0.0.0")
     API_PORT: int = int(os.getenv("API_PORT", "8000"))
+    INTERNAL_SECRET: str = os.getenv("INTERNAL_SECRET", "change-me-in-production")
 
 
 settings = Settings()

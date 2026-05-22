@@ -22,6 +22,10 @@ class SensorState:
         self.pressure = 1013.0
         self.rainfall = 0.0
         self.seismic = 0.0
+        self.uv_index = 0.0
+        self.traffic_density = 30.0
+        self.energy_grid_load = 1800.0
+        self.dust_storm_index = 0.0
 
 
 def _time_of_day_factor(now: datetime) -> float:
@@ -54,6 +58,41 @@ def _seasonal_base_temp(now: datetime) -> float:
     amplitude = 8.0
     base = 20.0
     return base + amplitude * math.sin(2 * math.pi * (day_of_year - 80) / 365)
+
+
+def _diurnal_traffic_factor(now: datetime) -> float:
+    hour = now.hour + now.minute / 60.0
+    if 7 <= hour <= 9:
+        return math.sin(math.pi * (hour - 7) / 2)
+    if 17 <= hour <= 19:
+        return math.sin(math.pi * (hour - 17) / 2)
+    return 0.0
+
+
+def _diurnal_uv_factor(now: datetime) -> float:
+    hour = now.hour + now.minute / 60.0
+    if 6 <= hour <= 18:
+        return math.sin(math.pi * (hour - 6) / 12)
+    return 0.0
+
+
+def _diurnal_load_factor(now: datetime) -> float:
+    hour = now.hour + now.minute / 60.0
+    if 8 <= hour <= 12:
+        return math.sin(math.pi * (hour - 8) / 4)
+    if 14 <= hour <= 17:
+        return math.sin(math.pi * (hour - 14) / 3)
+    return 0.0
+
+
+def _dust_storm_intensity(now: datetime, temp: float, humid: float) -> float:
+    if temp < 30 or humid > 30:
+        return 0.0
+    hour = now.hour + now.minute / 60.0
+    if 12 <= hour <= 17:
+        intensity = (temp - 30) / 20 * (1 - humid / 100) * (1 - abs(hour - 14.5) / 2.5)
+        return max(0.0, min(1.0, intensity))
+    return 0.0
 
 
 def _clamp(value: float, lo: float, hi: float) -> float:
@@ -105,6 +144,27 @@ def generate_readings(
             s.seismic += (0.1 - s.seismic) * 0.02
             s.seismic = _clamp(s.seismic, 0.0, 10.0)
 
+        uv_target = _diurnal_uv_factor(now) * random.uniform(7.0, 11.0)
+        s.uv_index += random.gauss(0, 0.2 * step)
+        s.uv_index += (uv_target - s.uv_index) * 0.05
+        s.uv_index = _clamp(s.uv_index, 0.0, 11.0)
+
+        traffic_target = 20.0 + _diurnal_traffic_factor(now) * 80.0
+        s.traffic_density += random.gauss(0, 3.0 * step)
+        s.traffic_density += (traffic_target - s.traffic_density) * 0.03
+        s.traffic_density = _clamp(s.traffic_density, 0.0, 200.0)
+
+        load_temp_bias = (s.temperature - 15.0) * 30.0
+        load_target = 1800.0 + _diurnal_load_factor(now) * 500.0 + max(0.0, load_temp_bias)
+        s.energy_grid_load += random.gauss(0, 20.0 * step)
+        s.energy_grid_load += (load_target - s.energy_grid_load) * 0.02
+        s.energy_grid_load = _clamp(s.energy_grid_load, 0.0, 5000.0)
+
+        dust_target = _dust_storm_intensity(now, s.temperature, s.humidity) * 5.0
+        s.dust_storm_index += random.gauss(0, 0.1 * step)
+        s.dust_storm_index += (dust_target - s.dust_storm_index) * 0.02
+        s.dust_storm_index = _clamp(s.dust_storm_index, 0.0, 5.0)
+
         drain = 0.05 * step * (0.5 + t_factor)
         s.battery -= drain
         if s.battery < 20 and random.random() < 0.02 * step:
@@ -121,6 +181,10 @@ def generate_readings(
         s.pressure = _clamp(s.pressure * lat_bias, 980.0, 1050.0)
         s.rainfall = _clamp(s.rainfall * lat_bias, 0.0, 150.0)
         s.seismic = _clamp(s.seismic * lat_bias, 0.0, 10.0)
+        s.uv_index = _clamp(s.uv_index * lat_bias, 0.0, 11.0)
+        s.traffic_density = _clamp(s.traffic_density * lat_bias, 0.0, 200.0)
+        s.energy_grid_load = _clamp(s.energy_grid_load * lat_bias, 0.0, 5000.0)
+        s.dust_storm_index = _clamp(s.dust_storm_index * lat_bias, 0.0, 5.0)
 
         metrics = {
             "temperature": round(s.temperature, 1),
@@ -129,6 +193,10 @@ def generate_readings(
             "pressure": round(s.pressure, 1),
             "rainfall": round(s.rainfall, 2),
             "seismic": round(s.seismic, 3),
+            "uv_index": round(s.uv_index, 2),
+            "traffic_density": round(s.traffic_density, 1),
+            "energy_grid_load": round(s.energy_grid_load, 1),
+            "dust_storm_index": round(s.dust_storm_index, 2),
         }
 
         reading = {

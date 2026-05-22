@@ -30,6 +30,9 @@ export default function MapsPage() {
     traffic: "bg-amber-50 border-amber-200",
     hydrology: "bg-cyan-50 border-cyan-200",
     radiation: "bg-red-50 border-red-200",
+    energy: "bg-yellow-50 border-yellow-200",
+    noise: "bg-purple-50 border-purple-200",
+    safety: "bg-red-50 border-red-200",
   };
 
   return (
